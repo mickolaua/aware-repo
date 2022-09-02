@@ -8,10 +8,16 @@ convinient way for working with GCN/TAN Confluent Kafka broker.
 
 Installation
 ============
-Installation process is quite simple via pip:
+Download an .whl file from targs and run pip:
 
-``pip install aware``
+``pip install AWARE-0.1.0-py3-none-any.whl``
 
-To install from source:
+Notes on target sorting
+=======================
 
-``pip install .``
+In the current version the automatic target sorting is implemented via script
+``aware_sort_targets`` and based on nearest neighbor algorithm. First off, 
+algorithm sorts all objects by airmass: inside observational time window, 
+the object with highest airmass to time ratio is choosen. Then, for this and 
+for all subsequent objects its nearest neighbor is found -- next observational 
+target.

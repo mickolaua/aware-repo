@@ -19,6 +19,9 @@ dependencies = [
 ]
 dynamic = ["readme"]
 
+[project.scripts]
+aware_sort_targets = "aware.scripts.aware_sort_targets:main"
+
 [project.optional-dependencies]
 dev = ["pytest", "dotenv", "wheel"]
 
