@@ -1,0 +1,10 @@
+dev: true # Development switch
+logger:
+  verbosity: "DEBUG" # Verbosity level for logger
+  filename: "aware.log" # Log file name
+  filemode: "w+" # Log file write mode
+consumer:
+  topics: ['gcn.classic.voevent.FERMI_GBM_FIN_POS'] # Topics to subscribe, empty list means all available
+  start_date: "2022-08-31T00:00:00" # Start to listen message from this date
+sql:
+  alert_db: "D:\\Repositories\\aware-repo\\alert.db" # Path to the alert database

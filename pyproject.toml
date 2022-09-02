@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools > 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AWARE"
+version = "0.1.0"
+authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
+requires-python = ">=3.8"
+dependencies = [
+    "pluggy",
+    "sqlalchemy>=1.4",
+    "gcn_kafka",
+    "confluent_kafka",
+    "lxml",
+    "dotenv",
+    "colorama",
+    "wheel"
+]
+dynamic = ["readme"]
+
+[project.optional-dependencies]
+dev = ["pytest", "dotenv", "wheel"]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst"]}
+
+[tool.setuptools.packages.find]
+where = ["."]
+# include = ["aware*"]
+exclude = ["tests"]
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
