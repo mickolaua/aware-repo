@@ -29,23 +29,22 @@ def _register_subclasses(mod: ModuleType) -> None:
     for name, obj in vars(mod).items():
         registered = False
         try:
-            print(mod.__name__)
-            if mod.__name__ == "alert":
+            if mod.__name__ == "aware.alert":
                 if (
                     issubclass(obj, mod.AlertParser) 
                     and obj is not mod.AlertParser
                 ):
                         mod.alert_parsers.add_parser(obj.topic, obj)
                         registered = True
-            elif mod.__name__ == "planner":
-                if issubclass(obj, mod.Site) and obj is not mod.Site:
-                    mod.planner.sites[obj.name] = obj
+            elif mod.__name__ ==  "aware.planner":
+                if isinstance(obj, mod.Site) and obj is not mod.Site:
+                    mod.sites[obj.name] = obj
                     registered = True
         except TypeError as e:
-            log.error(e)
+            pass
         else:
             if registered:
-                log.debug("found and registered plugin %s in %s",
+                log.debug("found and registered plugin '%s' in %s",
                             name, mod.__name__)
 
 

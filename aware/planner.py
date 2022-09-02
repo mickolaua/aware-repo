@@ -1,20 +1,18 @@
 from __future__ import annotations
-from collections import deque
-
-from datetime import datetime, timedelta
-from typing import Any, Mapping, Optional, Sequence, Union
-from astroplan.plots import plot_airmass
-from astropy.coordinates import EarthLocation, SkyCoord
-from astroplan.observer import Observer
-from astroplan import FixedTarget, Target
-import astropy.units as u
-from astropy.time import Time, TimeDelta
-from matplotlib.axes import Axes
-import matplotlib.pyplot as plt
-from matplotlib.ticker import FixedFormatter
-import numpy as np
 
 import warnings
+from datetime import datetime, timedelta
+from typing import Any, Optional, Sequence
+
+import astropy.units as u
+import matplotlib.pyplot as plt
+import numpy as np
+from astroplan import FixedTarget
+from astroplan.observer import Observer
+from astroplan.plots import plot_airmass
+from astropy.coordinates import SkyCoord
+from astropy.time import Time, TimeDelta
+from matplotlib.axes import Axes
 
 
 def _nearest_observation_window(
@@ -330,5 +328,3 @@ mondy = Site(
 )
 
 sites: dict[str, Site] = {}
-sites[mondy.name] = mondy
-

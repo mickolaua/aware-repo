@@ -13,10 +13,18 @@
 from .plugin import register_plugins
 
 
-__modules__ = ["config", "consumer", "logger", "alert", "plugin", "sql", 
-               "topic"]
+__modules__ = [
+    "config", 
+    "consumer", 
+    "logger", 
+    "alert", 
+    "plugin", 
+    "sql", 
+    "topic", 
+    "planner"
+]
 
 __all__ = []
 
 
-# register_plugins(__path__)
+register_plugins(__path__)
