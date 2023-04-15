@@ -17,19 +17,20 @@ import logging
 
 import colorama
 
-from aware.config import cfg
+from .config import CfgOption
 
 __all__ = ["log"]
 
 # Config options
-verbosity = logging.getLevelName(cfg["logger"]["verbosity"])
-filename = cfg["logger"]["filename"]
-filemode = cfg["logger"]["filemode"]
+verbosity = CfgOption("verbosity", value="INFO", 
+                      typ=lambda val: logging._nameToLevel[val])
+filename = CfgOption("filename", value="aware.log", typ=str)
+filemode = CfgOption("filemode", value="w+", typ=str)
 
 
 # Set logger
 log = logging.getLogger("aware")
-log.setLevel(verbosity)
+log.setLevel(verbosity.get_value())
 
 
 def colored_message(msg: str, color: str) -> str:
@@ -93,10 +94,8 @@ _remove_handlers()
 
 log.addHandler(console)
 
-logfile = logging.FileHandler(
-    cfg["logger"]["filename"], mode=cfg["logger"]["filemode"]
-)
-logfile.setLevel(cfg["logger"]["verbosity"])
+logfile = logging.FileHandler(filename.get_value(), mode=filemode.get_value())
+logfile.setLevel(verbosity.get_value())
 logfile.setFormatter(logging.Formatter(msg_format, "%Y-%m-%d %H:%M:%S"))
 log.addHandler(logfile)
 

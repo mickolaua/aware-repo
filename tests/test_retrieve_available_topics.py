@@ -9,7 +9,6 @@ from aware.config import CLIENT_ID, CLIENT_SECRET
 def test():
 	consumer = Consumer(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)	
 	topics = consumer.list_topics().topics
-
 	assert topics is not None, "consumer must return not empty list of topics"
 
 if __name__ == '__main__':

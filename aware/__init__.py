@@ -21,10 +21,22 @@ __modules__ = [
     "plugin", 
     "sql", 
     "topic", 
-    "planner"
+    "planner",
+    "cosmology",
+    "localization",
+    "visualtization",
+    "voevent",
+    "json",
+    "cache",
+    "data",
+    "site",
+    "credentials"
 ]
 
-__all__ = []
+# Patch astroplan since Sequence was moved to collections.abc
+try:
+    import collections
+    collections.Sequence = collections.abc.Sequence
+except ImportError:
+    pass
 
-
-register_plugins(__path__)
