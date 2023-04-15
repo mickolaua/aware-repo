@@ -30,12 +30,9 @@ def _register_subclasses(mod: ModuleType) -> None:
         registered = False
         try:
             if mod.__name__ == "aware.alert":
-                if (
-                    issubclass(obj, mod.AlertParser) 
-                    and obj is not mod.AlertParser
-                ):
-                        mod.alert_parsers.add_parser(obj.topic, obj)
-                        registered = True
+                if issubclass(obj, mod.AlertParser) and obj is not mod.AlertParser:
+                    mod.alert_parsers.add_parser(obj.topic, obj)
+                    registered = True
             elif mod.__name__ ==  "aware.planner":
                 if isinstance(obj, mod.Site) and obj is not mod.Site:
                     mod.sites[obj.name] = obj
@@ -44,8 +41,7 @@ def _register_subclasses(mod: ModuleType) -> None:
             pass
         else:
             if registered:
-                log.debug("found and registered plugin '%s' in %s",
-                            name, mod.__name__)
+                log.debug("found and registered plugin '%s' in %s", name, mod.__name__)
 
 
 def register_plugins(path: str) -> None:
@@ -62,10 +58,10 @@ def register_plugins(path: str) -> None:
         try:
             mod = importlib.import_module(module_name)
         except Exception as e:
+            log.exception(e)
             continue
         
-        # Temporally hardcoded solution, in future Plugin class must be 
-        # implemented
+        # Temporally hardcoded solution, in future Plugin class must be implemented
         _register_subclasses(mod)
             
         # Will be loaded latter
@@ -101,13 +97,10 @@ def hook_add_specs(path: str) -> None:
         except Exception as e:
             continue
         else:
-            log.debug("found hook specification(s) in module: '%s'", 
-                      module_name)
+            log.debug("found hook specification(s) in module: '%s'", module_name)
             try:
                 plugin_names = plugin_manager.register(sys.modules[module_name])
             except Exception as e:
                 pass
             else:
-                log.debug(
-                    "hook implementation(s) from module '%s' registrated",
-                    module_name)
+                log.debug("hook implementation(s) from module '%s' registrated", module_name)

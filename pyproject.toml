@@ -1,21 +1,35 @@
 [build-system]
-requires = ["setuptools > 61.0"]
+requires = ["wheel", "setuptools > 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "AWARE"
 version = "0.1.0"
 authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
-requires-python = ">=3.8"
+requires-python = ">=3.8,<3.12"
 dependencies = [
+    "wheel",
+    "poetry",
     "pluggy",
+    "numpy>=1.22.0",
+    "scipy>=1.7.0",
+    "pandas",
+    "geojson",
     "sqlalchemy>=1.4",
     "gcn_kafka",
     "confluent_kafka",
     "lxml",
-    "dotenv",
+    "python-dotenv",
     "colorama",
-    "wheel"
+    "wheel",
+    "matplotlib>=3.2.0",
+    "pendulum",
+    "aiogram",
+    "mocpy",
+    "astropy>=4.0",
+    "astropy_healpix>=0.7.0",
+    "astroplan",
+    "astroquery"
 ]
 dynamic = ["readme"]
 
@@ -23,7 +37,7 @@ dynamic = ["readme"]
 aware_sort_targets = "aware.scripts.aware_sort_targets:main"
 
 [project.optional-dependencies]
-dev = ["pytest", "dotenv", "wheel"]
+dev = ["pytest", "wheel"]
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst"]}

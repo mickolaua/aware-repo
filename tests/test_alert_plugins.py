@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # from aware import plugin_manager
-from aware.alert import plugin_manager
+from aware.alert.alert import plugin_manager
 from aware.logger import log
 
 
