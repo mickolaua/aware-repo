@@ -1,2 +1,4 @@
-__modules__ = ["main"]
+__modules__ = ["main", "observation"]
+
+from .observation import Observation
 from .main import *

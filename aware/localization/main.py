@@ -6,32 +6,14 @@ Created:  2023-02-05
 Modified: 2023-03-15
 """
 from __future__ import annotations
-import asyncio
-from contextlib import suppress
 
 import functools
-from io import BytesIO
 import sys
 from textwrap import dedent
-import time
 from typing import Any
-import aiohttp
-
-from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
-import pandas as pd
-from requests import Response
-import requests
-
-try:
-    from mocpy import MOC, World2ScreenMPL
-except ImportError:
-    from mocpy import MOC, WCS as World2ScreenMPL
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
 
 import astropy_healpix as ah
+import healpy as hp
 import matplotlib as mpl
 import numpy as np
 import numpy.typing as npt
@@ -39,22 +21,29 @@ from astroplan.target import FixedTarget
 from astropy import units as u
 from astropy.coordinates import Galactic, SkyCoord
 from astropy.time import Time
-from astropy.table import vstack
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.patches import Rectangle
+from mocpy import MOC
+
+from aware.field import Field
+
+from ..angle import coord2str
 
 # TODO: Implement these LIGO/Virgo functions for Windows
 if sys.platform.startswith("win"):
-    raise SystemExit("Sorry, but Windows is not currently supported.") 
+    raise SystemExit("Sorry, but Windows is not currently supported.")
 
 from ligo.skymap.moc import rasterize
-from ligo.skymap.postprocess.crossmatch import crossmatch
-from ligo.skymap.plot import mellinger
-from ligo.skymap.postprocess import find_greedy_credible_levels
+
+# for importing the WCS axes to globals
+from ligo.skymap.plot import mellinger  # type: ignore
+from ligo.skymap.postprocess.util import find_greedy_credible_levels
 
 from ..config import CfgOption
 from ..glade import GladeCatalog, GladeGalaxy
 from ..logger import log
 from ..site import Site
-from ..visualization import plot_moc, plot_glade_galaxies
 
 mpl.use("agg")
 
@@ -178,14 +167,16 @@ class CircularSkyMap(Localization):
         else:
             r = f"{r_deg:.3g} deg"
 
+        ra, dec = coord2str(self.center())
+
         return dedent(
             f"""
             Area: {self.area().value:.3g} deg^2
-            RA={self.center().ra.deg:04f} d ({ra_hour}, J2000)
-            Dec={self.center().dec.deg:+04f} d ({dec_dms}, J2000)
-            l={gal_coord.l.deg:.04f} d
-            b={gal_coord.b.deg:+.04f} d
-            Error r={r}"""
+            RA: {ra} ({self.center().ra.deg:04f} d, J2000)
+            Dec: {dec} ({self.center().dec.deg:+04f}, J2000)
+            l: {gal_coord.l.deg:.04f} d
+            b: {gal_coord.b.deg:+.04f} d
+            Error: {r}"""
         )
 
     async def observe(
@@ -258,14 +249,14 @@ class LVCSkyMap(Localization):
     def describe(self) -> str:
         return dedent(
             f"""
-            Area = {self.area().to_value("deg2"):.1f} deg^2
-            P_BNS = {self.bns_prob:.1f}
-            P_NSBH ={self.nsbh_prob:.1f}
-            P_BBH = {self.bbh_prob:.1f}
-            P_Terr = {self.terr_prob:.1f}
-            P_hasNS = {self.has_ns_prob:.1f}
-            P_hasRemnant = {self.has_remnant_prob:.1f}
-            H/W injection = {self.hw_inject:d}
+            Area: {self.area().to_value("deg2"):.1f} deg^2
+            P_BNS: {self.bns_prob:.1f}
+            P_NSBH: {self.nsbh_prob:.1f}
+            P_BBH: {self.bbh_prob:.1f}
+            P_Terr: {self.terr_prob:.1f}
+            P_hasNS: {self.has_ns_prob:.1f}
+            P_hasRemnant: {self.has_remnant_prob:.1f}
+            H/W injection: {self.hw_inject:d}
             GraceDB URL: {self.event_page:s}
             """
         )
@@ -296,20 +287,21 @@ class LVCSkyMap(Localization):
         hpx = rasterize(self.data, order=order)
         return hpx
 
-    async def observe(self, site: Site, start: Time, stop: Time) -> list[FixedTarget]:
-        # For wide-field scopes plan the mosaic observations and for narrow-field 
+    async def observe(self, site: Site, start: Time, stop: Time) -> list[GladeGalaxy]:
+        # For wide-field scopes plan the mosaic observations and for narrow-field
         # target observations of GLADE+ galaxies
         if site.fov.is_widefield:
             from ..planner.mosaic import mosaic_walker
-            sorted_targets = mosaic_walker(self.hpx, site.fov)
-            comment = "Observe these sky fields in a given order."
 
-            return sorted_targets, comment
+            nside = hp.get_nside(self.hpx)
+            npix = hp.get_map_size(self.hpx)
+            ring_idx = hp.ring2nest(nside, np.arange(npix))
+            galaxies = mosaic_walker(self.hpx[ring_idx], self.data, site.fov)
+            comment = "Observe these sky fields in a given order."
         else:
-            data = self._rasterize_multiordered_healpix()
             coord = self.lon_lat()
-            pixel_area = ah.level_to_nside(8)
-            prob = self.probdensity * pixel_area#.to_value("sr")
+            pixel_area = ah.nside_to_pixel_area(ah.level_to_nside(8))
+            prob = self.probdensity * pixel_area  # .to_value("sr")
             i = np.flipud(np.argsort(prob))
             sorted_credible_levels = np.cumsum(prob[i])
             credible_levels = np.empty_like(sorted_credible_levels)
@@ -321,143 +313,86 @@ class LVCSkyMap(Localization):
             # Query Vizier for Glade+ galaxies
             galaxies: list[GladeGalaxy] = []
             log.debug(
-                "Localization region is consist of %i pixels", 
-                ah.nside_to_npix(ah.level_to_nside(8))
+                "Localization region is consist of %i pixels",
+                ah.nside_to_npix(ah.level_to_nside(8)),
             )
-
-            # _lock = Lock()
-            # from astropy.io import votable
-            # from astropy.table import Table
 
             max_dL = self.distmu.to_value("Mpc") + 2 * self.distsigma.to_value("Mpc")
             min_dL = self.distmu.to_value("Mpc") - self.distsigma.to_value("Mpc")
 
-            # def _query_vizier(index: int) -> Table | None:
-            #     with _lock:
-            #         crd = coord[index][0]
-            #         log.debug(
-            #             "Querying Vizier for Glade+ galaxies within the field "
-            #             "center: %s, W: %.1f deg, H: %.1f deg",
-            #             crd.to_string("hmsdms"),
-            #             pixel_size,
-            #             pixel_size,
-            #         )
-
-            #     resp = GladeCatalog.query_field(
-            #         crd,
-            #         width=pixel_size * u.deg,
-            #         height=pixel_size * u.deg,
-            #         column_filters={"dL": f"<={max_dL} && >={min_dL}"},
-            #     )
-            #     try:
-            #         resp_bytes_io = BytesIO(resp.content)
-            #         resp_bytes_io.seek(0)
-            #     except EOFError:
-            #         return None
-
-            #     try:
-            #         vo_table: votable.table.tree.Table = votable.parse_single_table(
-            #             resp_bytes_io
-            #         )
-            #         cat_table = vo_table.to_table()
-            #     except IndexError as e:
-            #         return None
-            #     except requests.exceptions.ConnectTimeout as e:
-            #         time.sleep(60)
-            #         _query_vizier(index)
-
-            #     with _lock:
-            #         log.debug("%i galaxies retrieved", len(cat_table))
-
-            #     return cat_table
-
-            # # Very extensive process so using thread pool
-            # with ThreadPoolExecutor(max_workers=10) as ex:
-            #     futures = [ex.submit(_query_vizier, index) for index in idx]
-            #     results = [
-            #         res.to_pandas()
-            #         for completed_future in as_completed(futures)
-            #         if (res := completed_future.result()) is not None
-            #     ]
-            #     if not results:
-            #         return (
-            #             [], 
-            #             f"Can not cover localization region with {site.full_name}"
-            #         )
-            #     table = pd.concat(results)
-
-            # ra = list(table["RAJ2000"])
-            # dec = list(table["DEJ2000"])
-            # Bmag = list(table["Bmag"])
-            # names = list(table["GLADE_"])
-            # dL = list(table["dL"])
-            # zz = list(table["zhelio"])
-
-            # galaxies = [
-            #     GladeGalaxy(
-            #         SkyCoord(a*u.deg, d*u.deg), 
-            #         Bmag=B, 
-            #         z=z,
-            #         D_L=DL,
-            #         name=str(n)
-            #     ) for a, d, B, n, DL, z in zip(ra, dec, Bmag, names, dL, zz)
-            # ]
-
-            galaxies = GladeCatalog.query_local(
-                self.data, dist_lo_bound=min_dL, dist_hi_bound=max_dL
-            )
-
-            # Since the number of targets is very large, just sort them
-            # firstly by R.A., then by Dec
-            obs_targets = site.observable_targets(galaxies, start, stop)
-            sorted_targets = site.observation_order(
-                obs_targets, start_time=start, end_time=stop, method="radec"
-            )
-            if sorted_targets:
-                frac = len(sorted_targets) / len(galaxies)
-                if frac < 1.0:
-                    comment = (
-                        "Aim telescope at these Glade+ galaxies. Note: "
-                        f"telescope covers only {frac*100}% of localization region"
-                    )
-                else:
-                    comment = "Aim telescope at these Glade+ galaxies."
+            if GladeCatalog.table and GladeCatalog.coord:
+                galaxies = GladeCatalog.query_local(
+                    self.data, dist_lo_bound=min_dL, dist_hi_bound=max_dL
+                )
             else:
-                comment = "Can not cover localization region with " f"{site.full_name}"
+                galaxies = GladeCatalog.query_vizier(
+                    coord[idx], width=pixel_size.to("deg"), height=pixel_size.to("deg")
+                )
 
-            return sorted_targets, comment
+        # Since the number of targets is very large, just sort them
+        # firstly by R.A., then by Dec
+        obs_targets = site.observable_targets(galaxies, start, stop)
+        sorted_targets = site.observation_order(
+            obs_targets, start_time=start, end_time=stop, method="radec"
+        )
+
+        if sorted_targets:
+            frac = len(sorted_targets) / len(galaxies)
+            if frac < 1.0:
+                comment = (
+                    "Aim telescope at these Glade+ galaxies. Note: "
+                    f"telescope covers only {frac*100}% of localization region"
+                )
+            else:
+                comment = "Aim telescope at these Glade+ galaxies."
+        else:
+            comment = "Can not cover localization region with " f"{site.full_name}"
+
+        return sorted_targets, comment
 
     def plot(
-        self, site: Site, start: Time, stop: Time, targets: list[FixedTarget]
+        self,
+        site: Site,
+        start: Time,
+        stop: Time,
+        targets: list[FixedTarget | Field | GladeGalaxy],
     ) -> Axes:
         c = find_greedy_credible_levels(self.hpx)
 
         fig = plt.figure(figsize=(10, 6), dpi=100)
-        ax = plt.axes(
-            [0.05, 0.05, 0.9, 0.9],
-            projection='astro hours mollweide'
-        )
+        ax = plt.axes([0.05, 0.05, 0.9, 0.9], projection="astro hours mollweide")
         cs = ax.contour_hpx(
-            (100 * c, 'ICRS'), 
+            (100 * c, "ICRS"),
             nested=True,
-            colors='k', 
+            colors="k",
             linewidths=2,
             levels=[90],
         )
         plt.clabel(cs, fontsize=6, inline=True)
 
         ax.grid(True)
-        ax.imshow_hpx(
-            (self.hpx, "icrs"), nested=True, cmap='cylon'
-        )
-        ax.scatter(
-            [t.coord.ra.deg for t in targets] * u.deg, 
-            [t.coord.dec.deg for t in targets]* u.deg,
-            transform=ax.get_transform("icrs")
-        )
-        # ax.set_title(f"{table.meta['OBJECT']} localization map")
+        ax.imshow_hpx((self.hpx, "icrs"), nested=True, cmap="cylon")
 
-        
+        if isinstance(targets[0], Field):
+            for f in targets:
+                box = f.box()
+                rect = Rectangle(
+                    (box.left_lower.ra.deg, box.left_lower.dec.deg),
+                    width=f.width.to_value("deg"),
+                    height=f.height.to_value("deg"),
+                    transform=ax.get_transform("world"),
+                    edgecolor="k",
+                    lw=3,
+                    alpha=0.3,
+                )
+                ax.add_artist(rect)
+        else:
+            ax.scatter(
+                [t.coord.ra.deg for t in targets] * u.deg,
+                [t.coord.dec.deg for t in targets] * u.deg,
+                transform=ax.get_transform("icrs"),
+            )
+        # ax.set_title(f"{table.meta['OBJECT']} localization map")
 
         # ax = plot_moc(self.moc(), projection="MOL", fig_kws={"figsize": (12, 6)})
 

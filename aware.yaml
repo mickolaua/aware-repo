@@ -1,0 +1,40 @@
+config:
+  dev: true # Development switch
+  dot_env_path: ".env"
+logger:
+  verbosity: "DEBUG" # Verbosity level for logger
+  filename: "aware.log" # Log file name
+  filemode: "w+" # Log file write mode
+consumer:
+  main:
+    topics: [
+      "gcn.classic.voevent.FERMI_GBM_FIN_POS",
+      # "gcn.classic.voevent.SWIFT_BAT_GRB_POS_TEST",
+      "gcn.classic.voevent.SWIFT_XRT_POSITION",
+      "gcn.classic.voevent.SWIFT_BAT_GRB_POS_ACK",
+      # 'gcn.classic.voevent.SWIFT_ACTUAL_POINTDIR',
+      "gcn.classic.voevent.SWIFT_UVOT_POS",
+      # "gcn.classic.voevent.LVC_PRELIMINARY"
+    ] # Topics to subscribe, empty list means all available
+    start_date: "2023-01-20T00:00:00" # Start to listen message from this date
+planner:
+  main:
+    sort_method: "nearest" # Method of sorting targets for optimal observation
+    max_airmass: 3.5 # Max appropriate airmass for observing targets
+sql:
+  models:
+    alert_db: "alert.db" # Path to the alert database
+glade:
+    main:
+      row_limit: 99999999 # Maximal number of rows retrieved from remote GLADE+ catalog
+      catalog_path: "/mnt/e/Catalogs/GLADE_Plus/glade.fits"
+localization:
+  coord_frame: "icrs"
+  lvk_uncert_level: 0.9
+  max_healpix_resolution: 9
+  healpix_resolution_step: 2
+site:
+  main:
+    default_sites: ["assy_azt20", "mondy_azt33ik", "abao_as32"] 
+telegram:
+  send_delay: 2.0 # Message send delay in seconds to prevent Telegram from blocking messages (anti-flooding security)
