@@ -20,6 +20,7 @@ jobs:
         fetch-depth: '0'
 
     - name: Bump version and push tag
+      id: tag_ver
       uses: anothrNick/github-tag-action@1.64.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -30,4 +31,7 @@ jobs:
         MINOR_STRING_TOKEN: 'FEAT:'
         PATCH_STRING_TOKEN: 'FIX:'
         NONE_STRING_TOKEN: 'NONE:'
+        
+    - name: Write version to pyproject.toml
+      run: sh ./tools/bump_version.sh ${{ steps.tag_ver.new_tag }}
         
