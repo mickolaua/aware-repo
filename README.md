@@ -64,10 +64,10 @@ Bourne shell (bash/sh/zsh):
 
 Now everything is completed to run the AWARE. Just type this command in any shell:
 
-``python -m aware``
+``python -m aware -t``
 
-Note. It is desired to create a working folder in which the AWARE will be executed, 
-since there are a lot of observational plots and plans could be generated during the 
+Note. Ommiting the `-t` flag disables the Telegram thread. It is desired to create a working folder in which the AWARE will be executed, 
+since there are a lot of observational plots and plans could be generated during 
 its run. 
 
 Optionally, one can overwrite the default options like, list of event types to listen, 
@@ -87,114 +87,146 @@ Bourne Shell (bash, sh, zsh):
 
 A Telegram user can interact with bot using these commands:
 
-`/run`
+`/status` - Check if bot is idle or broadcasting messages.
 
-Run the communication with alert message consumer thread. This command must be executed 
-in order that all the channel subscribers could receive alert messages in real-time as 
-well as any related observational information.
+`/telescopes` - Get the list of telescopes for which observation planning is available.
 
-`/stop`
+`/topics` - Get the list of GCN event types to be received
 
-Stop receiving messages.
+`/sub` - Subscribe for messages and observational plans
 
-`/status`
+`/unsub` - subscribe from bot
 
-Check if bot is idle or broadcasting messages.
+`/help` - Display the help on bot commands.
 
-`/telescopes`
-
-Get the list of telescopes for which observation planning is available.
-
-`/topics`
-
-Get the list of GCN event types to be received
-
-`/help`
-
-Display the help on bot commands.
-
-Text commands:
-
-1. Finding chart image:
-
-just type something like: `TRANSIENT_NAME 133.33 35.33` to get DSS finding chart of 
-the target TRANSIENT_NAME at coordinates RA=133.33 DEC=35.33 (J2000).
+`/findchart [TRANSIENT_NAME] [RA] [DEC]` - DSS finding chart of 
+the target TRANSIENT_NAME
 
 
 Planning the observations
 =========================
-Depending on the event type (for example, SWIFT_XRT_POSITION or LVC_PRELIMENARY) and 
-localization uncertainty, observational information is different. For example, events 
-sent by Fermi, Swift, INTEGRAL, IceCube are localized within approximately circular 
-region in the sky. In this case, a typical localization area is up to a few degrees 
-(excluding Fermi GBM). For these events, the AWARE planner creates the airmass plot 
-for the center of the localization region if it is could be observable by a telescope.
+The planner extracts neccessary information on an event from alert messages. Depending on the alert type (for example, SWIFT_XRT_POSITION or LVC_PRELIMENARY) this information could differ, since there a lot of instrument-related parameters. Actually, it is assumed two main classes of alert messages. First one, are sent by such observatories as Fermi, Swift, INTEGRAL, IceCube. They provide approximately circular sky error region in the sky. In this case, a typical localization area is up to a few degrees (excluding Fermi GBM). For these events, the planner creates the airmass plot 
+for the center of the localization region, if the target could be observable by a telescope.
 
-For example, the what will send the bot on an XRT alert:
+For example, the content that will be send by the bot on an XRT alert is following:
 
-<figure align="center">
-   <img src="airmass_plot_xrt_example.png"
-         alt="XRT_airmass_plot_example"
-         width="300" 
-         height="500"
-         float="center">
-   <figcaption>Fig. 1 -The alert message and visibility plot of the Swift Trigger #1162001 for AZT-33IK at Mondy observatory.</figcaption>
-</figure>
+```
+From: Swift XRT
+Event: 1165948
+Trigger: 2023-04-27T10:33:34+00:00 UTC
+Packet: gcn.classic.voevent.SWIFT_XRT_POSITION
 
-The corresponding JSON-file will include only one target per each telescope:
+Area: 3.8e-06 deg^2
+RA: 10:13:14.5 (153.310600 d, J2000)
+Dec: +48:12:15 (+48.204300, J2000)
+l: 167.6093 d
+b: +52.8749 d
+Error: 3.96 arcsec
+```
 
-<figure align="center">
-   <img src="json_xrt_example.png"
-         alt="XRT_json_example"
-         width="300" 
-         height="500"
-         float="center">
-   <figcaption>Fig. 2 - An example of XRT observational plan stored in the JSON-file.</figcaption>
-</figure>
+The corresponding observatory-related target list file will include only one target, for example in `.txt` format for observatories that do not have automatic scheduler:
+
+```
+# 
+ra dec exp filter
+10:13:14.9 +48:12:13 120.0x3 R
+```
+
+or in `.list` format for automatic scheduling:
+
+```
+J101314.90+481213.00 = F 101314.90 +481213.00 3x120.0*R
+```
+
+The example of a visibility plot associated with this event, depicted in the following figure:
+
+![visibility plot](airmass_plot_xrt_example.jpg)
 
 ## LVC observations
-The message content is different from that for previously mentioned alert types. It 
-includes probabilities for event to be a binary neutron star merger, neutron star 
-black hole merger, binary black hole merger, or earthquake. An example of the message 
-sent by Telegram bot is shown here:
+We have temporarily classified LVK events in a separate group due to their large sky localization area. However, Fermi GBM events should assigned to this group two, because their localization uncertainty may be comparable with LVK ones. The message content of LVK events 
+includes probabilities for event to be a binary neutron star merger, neutron star black hole merger, binary black hole merger, or terrestrial event. The example message sent by the bot on the LVK S230611be (latest at the moment of writing) has the following content:
 
-<figure align="center">
-   <img src="lvc_skymap_example.png"
-         alt="LVC skymap example"
-         width="300" 
-         height="500"
-         float="center">
-   <figcaption>Fig. 3 - An example of the LVC event alert message and skymap plot.</figcaption>
-</figure>
+```
+[New event]
+From: LVC
+Trigger ID: S230611be
+Trigger Date: 2023-06-11T20:54:23 UTC
+Packet: LVC_PRELIMINARY
 
-Compared with above type of events, LVC events have up to 1000 deg $^2$ localization areas. To explore such large sky fields, two methods of observation planning are being 
-developed. 
+FAR: 2.769e-06 Hz (1 per 0.0 yr^-1)
+P_BNS: 0.0
+P_NSBH: 0.0
+P_BBH: 0.4
+P_Terr: 0.6
+P_hasNS: 0.0
+P_hasRemnant: 0.0
+H/W injection: 0
+GraceDB URL: https://gracedb.ligo.org/superevents/S230611be/view/
+Skymap URL: https://gracedb.ligo.org/api/superevents/S230611be/files/bayestar.multiorder.fits,0
+Instruments: H1,L1
+Algorithm: gstlal
+
+90.0% area: 3345.2 deg2
+Distance: 4044.986 Mpc +/- 2665.367 Mpc (2sigma)
+```
+
+Because of the large localization area of LVK events, there are three main (last is the combination of first two) observation tactics to observe LVK events.
 
 ### Target observations
 
-This method is best suited for narrow field-of-view telescopes, for example, 15x15 
-arcmin squared. Observational targets are GLADE+ galaxies that are contained inside 
-the 90% probability volume of the localization region. The example JSON-file with 
-GLADE+ target is shown bellow:
+Since their projenitors are coalescing binaries (NSBH and BNS) located in dwarf elliptic galaxies, one can observe them and check for any new optical source in their neighborhood or reveal significant brightness excess of a galaxy itself if the optical transient could not be resolved.
 
-<figure align="center">
-   <img src="lvc_json_example.png"
-         alt="LVC json example"
-         width="250" 
-         height="500"
-         float="center">
-   <figcaption>Fig. 4 - An example of JSON-file for LVC event.</figcaption>
-</figure>
+This method is best suited for narrow field-of-view telescopes, for example, 15x15 arcmin squared. Observational targets are GLADE+ galaxies that are contained inside the 90% (or any other percentage) probability volume of the localization region. As a result the bot will send per observatory list of galaxies to observe in the nearest night after the event has occured. The galaxies are selected starting from the localization area locations with most probability to contain the event. Then the galaxies clustered into groups in size of no large than several degrees, each one per a certain observatory. Typically, these groups will contain up to 30 galaxies. Inside a group, the galaxies sorted in optimal order for observations (currently, using nearest neighbor algorithm). An example of the galaxy list is shown below:
 
-Note. Only those targets that observable by the certain telescope in the nearest observational window are in the list. 
+```
+ra dec exp filter
+22:25:02.90 +28:07:49.97 30.0x3 r
+22:25:06.29 +28:04:27.84 30.0x3 r
+22:24:56.72 +28:14:55.46 30.0x3 r
+22:25:02.49 +28:17:34.63 30.0x3 r
+22:25:54.09 +28:13:37.30 30.0x3 r
+22:24:52.46 +28:17:40.50 30.0x3 r
+22:23:50.50 +28:08:29.32 30.0x3 r
+22:23:28.08 +28:05:26.60 30.0x3 r
+22:23:50.90 +28:01:13.30 30.0x3 r
+22:23:29.57 +28:05:39.35 30.0x3 r
+22:23:23.92 +28:12:16.00 30.0x3 r
+22:24:14.53 +28:02:55.10 30.0x3 r
+22:23:20.62 +28:14:57.51 30.0x3 r
+22:25:58.55 +28:06:12.23 30.0x3 r
+```
+
+### Mosaic observations
+
+The mosaic observations of sky fields inside the localization region is applicable for wide-field telescopes, with FOV $\gtrsim 40$ arcmin. First off, algorithm re-grids the skymap in the tiles of 
+size 0.9xFOV (10% is accounted for any artefacts at the image edges). Then, the most probable tile is the chosen as the start point. The algorithm walks through most probable to least probable tiles along a spiral path. The output is the list of fields for each specified telescope (the format is the same as for target lits). The example of the field list file content is given below:
+
+```
+Field_0.73dx0.73d_J093544_26_+103039_42 = F 093544.26 +103039.42 0.00 3x60.0
+Field_0.73dx0.73d_J093821_64_+103039_42 = F 093821.64 +103039.42 0.00 3x60.0
+Field_0.73dx0.73d_J093821_64_+111004_38 = F 093821.64 +111004.38 0.00 3x60.0
+Field_0.73dx0.73d_J094059_02_+111004_38 = F 094059.02 +111004.38 0.00 3x60.0
+Field_0.73dx0.73d_J094059_02_+114929_34 = F 094059.02 +114929.34 0.00 3x60.0
+Field_0.73dx0.73d_J094059_02_+122854_31 = F 094059.02 +122854.31 0.00 3x60.0
+Field_0.73dx0.73d_J093821_64_+114929_34 = F 093821.64 +114929.34 0.00 3x60.0
+```
+
+### Mixed observations
+
+Actually, there are usually both narrow field and widefield telescopes in a network. Luckily, AWARE performs planning for both types of telescopes in automatic mode.
 
 
-### Mosaic observations (WiP)
+## Target/field distribution
 
-The mosaic (e.g. tile, sky-field) observations is applicable for wide-field telescopes, 
-with FOV $\gtrsim 40$ arcmin. First off, algorithm re-grids the skymap in the tiles of 
-size 0.9xFOV (10% is accounted for any artefacts at the image edges). Then, the post probable tile is the chosen as the start point. The algorithm walks through most 
-probable to least probable tiles strictly N_ITER steps. After algorithm has finished, 
-the list of tile centers written to the JSON-file.
+For efficient observation of the sky map localization error contour, the planner could perform planning only of the unique target/fields, so there will no duplicate observation objects, each telescope will observe each own targets. Furthermore, the planner provides scheduling not only for first observation night, but for next days too. In addition, the planner can perform only target or field planner that day. Also, the set of telescopes for which observation plans are created could be changed for a next day. Thus, the planner is very flexible for creation schedules using only available telescopes.
 
+## Plotting
+
+Each observation plan is accompanied by the skymap coverage plot, graphically indicating the area (black highlighted), covered by the sky fields included in the telescope planning. The example shown below:
+
+![coverage map plot](lvc_coverage_map_example.jpg)
+
+# Playground
+
+Some of the planning functionality presented as Jupyter Notebooks and located in the `playground` subfolder within this repository.
 

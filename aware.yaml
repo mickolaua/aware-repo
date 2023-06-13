@@ -14,16 +14,23 @@ consumer:
       "gcn.classic.voevent.SWIFT_BAT_GRB_POS_ACK",
       # 'gcn.classic.voevent.SWIFT_ACTUAL_POINTDIR',
       "gcn.classic.voevent.SWIFT_UVOT_POS",
-      # "gcn.classic.voevent.LVC_PRELIMINARY"
+      "gcn.classic.voevent.LVC_PRELIMINARY",
+      "gcn.classic.voevent.LVC_INITIAL",
+      "gcn.classic.voevent.LVC_RETRACTION",
+      "gcn.classic.voevent.LVC_UPDATE",
+      # "gcn.classic.voevent.LVC_EARLY_WARNING",
     ] # Topics to subscribe, empty list means all available
-    start_date: "2023-01-20T00:00:00" # Start to listen message from this date
+    start_date: "2023-04-01T00:00:00" # Start to listen message from this date
 planner:
   main:
     sort_method: "nearest" # Method of sorting targets for optimal observation
     max_airmass: 3.5 # Max appropriate airmass for observing targets
 sql:
   models:
-    alert_db: "alert.db" # Path to the alert database
+    alert_db: "test_alert.db" # Path to the alert database
+    driver: "sqlite"
+    query: []
+    password: ""
 glade:
     main:
       row_limit: 99999999 # Maximal number of rows retrieved from remote GLADE+ catalog
@@ -35,6 +42,6 @@ localization:
   healpix_resolution_step: 2
 site:
   main:
-    default_sites: ["assy_azt20", "mondy_azt33ik", "abao_as32"] 
+    default_sites: ["abao_as32", "kitab_rc36", "sao_ras_zeiss1000"] 
 telegram:
   send_delay: 2.0 # Message send delay in seconds to prevent Telegram from blocking messages (anti-flooding security)

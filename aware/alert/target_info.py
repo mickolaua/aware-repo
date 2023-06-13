@@ -12,13 +12,14 @@ __all__ = ["TargetInfo"]
 
 @dataclass
 class TargetInfo:
-    localization: Localization
-    packet_type: str = ""
-    event: str = ""
-    origin: str = ""
+    localization: Localization | None
+    packet_type: str | None = ""
+    event: str | None = ""
+    origin: str | None = ""
     trigger_date: Optional[datetime] = None
     importance: Optional[float] = None
     description: Optional[str] = None
+    rejected: bool | None = False
     meta: Optional[dict[Any, Any]] = field(default_factory=dict)
 
     def describe(self) -> str:

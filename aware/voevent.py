@@ -8,6 +8,7 @@ Modified: 2023-03-01
 from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
+from typing import Any, Callable, TypeVar
 
 
 from lxml import objectify, etree
@@ -418,6 +419,21 @@ VOEvent_V2_0_Header = b"""
     ivorn="ivo://undefined"></voe:VOEvent>
 """
 
+
+def convert_data_type(voevent_type: str) -> type:
+    if voevent_type == "string":
+        return str
+    elif voevent_type == "float":
+        return float
+    elif voevent_type == "int":
+      return int
+    else:
+        return str
+
+
+VoeventReturnType = TypeVar("VoeventReturnType")
+
+
 class VOEvent:
     def __init__(self, root: etree._ElementTree):
         self._remove_root_tag_prefix(root)
@@ -441,13 +457,13 @@ class VOEvent:
         """
         if voevent.prefix:
             # Create subelement without a prefix via etree.SubElement
-            etree.SubElement(voevent, 'original_prefix')
+            etree.SubElement(voevent, "original_prefix")
             # Now carefully access said named subelement (without prefix cascade)
             # and alter the first value in the list of children with this name...
             # LXML syntax is a minefield!
-            voevent['{}original_prefix'][0] = voevent.prefix
+            voevent["{}original_prefix"][0] = voevent.prefix
             voevent.tag = voevent.tag.replace(
-                ''.join(('{', voevent.nsmap[voevent.prefix], '}')), ''
+                "".join(("{", voevent.nsmap[voevent.prefix], "}")), ""
             )
             # Now v.tag = '{}VOEvent', v.prefix = None
         return
@@ -456,12 +472,10 @@ class VOEvent:
         """
         Returns namespace prefix to root tag, if it had one.
         """
-        if hasattr(voevent, 'original_prefix'):
+        if hasattr(voevent, "original_prefix"):
             original_prefix = voevent.original_prefix
             del voevent.original_prefix
-            voevent.tag = ''.join(
-                ('{', voevent.nsmap[original_prefix], '}VOEvent')
-            )
+            voevent.tag = "".join(("{", voevent.nsmap[original_prefix], "}VOEvent"))
         return
 
     def _return_to_standard_xml(self, voevent: etree._ElementTree):
@@ -473,11 +487,56 @@ class VOEvent:
 
     @classmethod
     def from_file(cls, file_: str | Path | BytesIO) -> VOEvent:
-        xml: etree._ElementTree = objectify.parse(file_) 
+        xml: etree._ElementTree = objectify.parse(file_)
         root: etree._ElementTree = xml.getroot()
         return cls(root)
-    
+
     @classmethod
     def from_string(cls, string: str) -> VOEvent:
-      xml: etree._ElementTree = objectify.fromstring(string)
-      return cls(xml)
+        xml: etree._ElementTree = objectify.fromstring(string)
+        return cls(xml)
+
+    def _convert_to_bool_or_str(
+        self,
+        value: str,
+    ) -> bool | str:
+        if value.lower() in {"false", "no"}:
+            return False
+
+        elif value.lower() in {"true", "yes"}:
+            return True
+
+        else:
+            return value
+
+    def get_parameter_value(
+        self,
+        name: str,
+        type_: Callable[[bool | str], VoeventReturnType] = str,
+    ) -> VoeventReturnType | None:
+        """Find the parameter inside the VOEvent root by its name.
+
+        Parameters
+        ----------
+        name : str
+            a parameter name
+        type_ : Callable[[bool  |  int  |  float  |  str], VoeventReturnType], optional
+            a parameter value type, by default str
+
+        Returns
+        -------
+        value: VoeventReturnType | None
+            a parameter value in the specified format or None if the parameter not 
+            found
+        """
+
+        try:
+            value = type_(
+                self._convert_to_bool_or_str(
+                    self.root.find(f".//Param[@name='{name}']", None).attrib["value"]
+                )
+            )
+        except AttributeError:
+            value = None
+
+        return value

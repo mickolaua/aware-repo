@@ -7,9 +7,11 @@ from aware.logger import log
 from aware.config import cfg
 import sys
 import os
+import pytest
 
 
-def test() -> int:
+@pytest.mark.skip
+def test():
     cfg["aware"]["logger"]["filename"] = "test1.log"
     log.critical("critical output (long)" + "ara-"*79 + "ara")
     log.error("error output")

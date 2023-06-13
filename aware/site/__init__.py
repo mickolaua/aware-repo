@@ -1,4 +1,3 @@
-__modules__ = ["main", "observation"]
+__modules__ = ["main"]
 
 from .main import *
-from .observation import ObservationProgram

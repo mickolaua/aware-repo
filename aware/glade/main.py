@@ -9,27 +9,27 @@ from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from threading import Lock
+import time
 from typing import Any, Callable, Literal, Optional
 
-import dask
-import dask.array as da
-import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 from astroplan.target import FixedTarget
 from astropy import units as u
 from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.io.fits import FITS_record
-from astropy.table import Table
+from astropy.table import Table, vstack
+from astropy.io import votable
 from astroquery.vizier import Vizier
 from ligo.skymap.postprocess.crossmatch import crossmatch
 from requests import Response
+import requests
+
 
 from ..config import CfgOption
 from ..cosmology import cosmos
 from ..logger import log
-
-dask.config.set(scheduler="threads", num_workers=8)
+from ..angle import coord2str, coord_to_target_name
 
 
 vizier_url = CfgOption("vizier_url", "http://vizier.u-strasbg.fr", str)
@@ -101,36 +101,55 @@ class GladeCatalog:
         "logRate",
         "e_logRate",
     )
-    table = Table.read(
-        catalog_path.get_value(),
-        format="fits",
-        units=["deg", "deg", "Mpc", "mag"],
-        memmap=True,
-        astropy_native=True,
-    )
-    coord = SkyCoord(table["RAJ2000"], table["DEJ2000"], table["dL"])
+    table = None
+    coord = None
 
     @staticmethod
-    def query_local(
-        sky_map: FITS_record,
+    def lazy_load_catalog() -> tuple(Table, SkyCoord):
+        if not getattr(GladeCatalog, "table", None) or not getattr(
+            GladeCatalog, "coord", None
+        ):
+            table = Table.read(
+                catalog_path.get_value(),
+                format="fits",
+                units=["deg", "deg", "Mpc", "mag"],
+                memmap=True,
+                astropy_native=True,
+            )
+            GladeCatalog.coord = SkyCoord(
+                table["RAJ2000"], table["DEJ2000"], table["dL"]
+            )
+            GladeCatalog.table = table
+
+        return GladeCatalog.table, GladeCatalog.coord
+
+    @staticmethod
+    def query_skymap_local(
+        sky_map_moc: Table,
         dist_lo_bound: u.Unit = 0 * u.Mpc,
         dist_hi_bound: u.Unit = np.inf * u.Mpc,
-    ) -> list[GladeGalaxy] | None:
-        match_res = crossmatch(sky_map, coordinates=GladeCatalog.coord)
+        prob: float = 0.9,
+    ) -> list[GladeGalaxy]:
+        log.debug("loading local GLADE+ catalog into RAM")
+        table, coord = GladeCatalog.lazy_load_catalog()
+
+        log.debug("query GLADE+ catalog against %.1f per cent contour", prob * 100)
+        match_res = crossmatch(sky_map_moc, coordinates=coord, contours=(prob,))
         galaxies = [
             GladeGalaxy(
                 SkyCoord(ra * u.deg, dec * u.deg),
                 Bmag=Bmag,
                 z=None,
                 D_L=dL,
-                name=f"J{ra/15:.6f}{dec:+.5f}",
+                name=coord_to_target_name(SkyCoord(ra * u.deg, dec * u.deg)),
             )
-            for (ra, dec, dL, Bmag) in GladeCatalog.table[
-                (match_res.searched_prob < 0.9)
-                & (GladeCatalog.table["dL"] > dist_lo_bound)
-                & (GladeCatalog.table["dL"] < dist_hi_bound)
+            for (ra, dec, dL, Bmag) in table[
+                (match_res.searched_prob < prob)
+                & (table["dL"] > dist_lo_bound)
+                & (table["dL"] < dist_hi_bound)
             ].iterrows()
         ]
+        log.debug("%d galaxies loaded from the catalog", len(galaxies))
 
         # Free memory held by crossmatch function
         gc.collect()
@@ -138,7 +157,7 @@ class GladeCatalog:
         return galaxies
 
     @staticmethod
-    def query_field(
+    def query_vizier(
         center_coord: SkyCoord,
         radius: Optional[u.Unit] = None,
         width: Optional[u.Unit] = None,
@@ -154,14 +173,83 @@ class GladeCatalog:
         else:
             kws = dict(width=width, height=height)
 
-        resp: Response = Vizier(row_limit=row_limit.get_value()).query_region_async(
-            center_coord,
-            **kws,
-            catalog=GladeCatalog.id,
-            column_filters=column_filters if column_filters is not None else {},
-        )
+        _lock = Lock()
 
-        return resp
+        def _query_vizier(index: int) -> Table | None:
+            with _lock:
+                crd = center_coord[index][0]
+                log.debug(
+                    "Querying Vizier for Glade+ galaxies within the field "
+                    "center: %s, W: %.1f deg, H: %.1f deg",
+                    crd.to_string("hmsdms"),
+                    width.to_value("deg"),
+                    height.to_value("deg"),
+                )
+
+            resp: Response = Vizier(row_limit=row_limit.get_value()).query_region_async(
+                center_coord,
+                **kws,
+                catalog=GladeCatalog.id,
+                column_filters=column_filters if column_filters is not None else {},
+            )
+
+            try:
+                resp_bytes_io = BytesIO(resp.content)
+                resp_bytes_io.seek(0)
+            except EOFError:
+                log.debug()
+                return None
+
+            # resp = GladeCatalog.query_field(
+            #     crd,
+            #     width=pixel_size * u.deg,
+            #     height=pixel_size * u.deg,
+            #     column_filters={"dL": f"<={max_dL} && >={min_dL}"},
+            # )
+
+            try:
+                vo_table: votable.table.tree.Table = votable.parse_single_table(
+                    resp_bytes_io
+                )
+                cat_table = vo_table.to_table()
+            except IndexError as e:
+                return None
+            except requests.exceptions.ConnectTimeout as e:
+                time.sleep(60)
+                _query_vizier(index)
+
+            with _lock:
+                log.debug("%i galaxies retrieved", len(cat_table))
+
+            return cat_table
+
+        # Very extensive process so using thread pool
+        with ThreadPoolExecutor(max_workers=10) as ex:
+            futures = [ex.submit(_query_vizier, index) for index in idx]
+            results = [
+                res
+                for completed_future in as_completed(futures)
+                if (res := completed_future.result()) is not None
+            ]
+            if not results:
+                return None
+
+            table: Table = vstack(results)
+            ra = list(table["RAJ2000"])
+            dec = list(table["DEJ2000"])
+            Bmag = list(table["Bmag"])
+            names = [coord_to_target_name(c) for c in SkyCoord(ra, dec)]
+            dL = list(table["dL"])
+            zz = list(table["zhelio"])
+
+            galaxies = [
+                GladeGalaxy(
+                    SkyCoord(a * u.deg, d * u.deg), Bmag=B, z=z, D_L=DL, name=str(n)
+                )
+                for (a, d, B, n, DL, z) in table.iterrows()
+            ]
+
+        return galaxies
 
     @staticmethod
     def query_field_local_txt(
