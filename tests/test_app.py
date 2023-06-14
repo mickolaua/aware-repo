@@ -1,9 +1,12 @@
-from aware.app import Application
 import pytest
 
 
-@pytest.mark.skip("Application is a daemon process, does not return anything to test.")
+@pytest.mark.skip(
+    reason="Application is a daemon process, does not return anything to test."
+)
 def test():
+    from aware.app import Application
+
     app = Application()
     app.run()
 

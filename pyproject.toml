@@ -33,7 +33,7 @@ dependencies = [
     "click",
     "sqlcipher3",
     "aiosmtplib",
-    "asyncclick"
+    "asyncclick",
 ]
 dynamic = ["readme"]
 
@@ -62,3 +62,10 @@ where = ["."]
 # include = ["aware*"]
 exclude = ["tests"]
 namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-c tests/conftest.py --disable-warnings"
+testpaths = [
+    "tests"
+]
