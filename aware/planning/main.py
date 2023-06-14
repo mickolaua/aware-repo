@@ -178,15 +178,16 @@ def nn_sorter(
 
     # Perform sorting
     order_idx = np.zeros_like(targets_by_airmass)
+    mask = np.zeros_like(order_idx).astype(int)
     seq_obj_id = 0
     for i in range(N - 1):
         # Find closest neighbor id
-        j = 1
-        next_obj_id = 1
-        while (next_obj_id in order_idx):
-            j += 1
-            next_obj_id = np.argsort(dist_matrix[seq_obj_id, :])[j]
-            
+        uniq = np.unique(order_idx).astype(int)
+        mask[uniq] = 1
+        dist = np.ma.masked_array(dist_matrix[seq_obj_id, :], mask=mask)
+        next_obj_id = np.argmin(dist)
+        
+        # Assign next target id
         order_idx[i + 1] = next_obj_id
         seq_obj_id = next_obj_id
 
