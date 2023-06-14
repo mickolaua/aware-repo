@@ -1,5 +1,5 @@
 config:
-  dev: true # Development switch
+  dev: false # Development switch
   dot_env_path: ".env"
 logger:
   verbosity: "DEBUG" # Verbosity level for logger

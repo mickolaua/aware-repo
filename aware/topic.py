@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = ["TOPICS", "full_topic_name_to_short", "short_topic_name_to_full"]
 
 

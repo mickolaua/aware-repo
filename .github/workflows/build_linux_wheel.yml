@@ -44,9 +44,9 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest
         python -m pip install pip-tools
-        python -m pip install cibuildwheel==2.12.3
         pip-compile -o requirements.txt --resolver backtracking --verbose
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f requirements_dev.txt ]; then pip install -r requirements_dev.txt; fi
 # Skip linting because we will have a lot of errors since a lot of incorrect type checking for 
 # different reasons, including packages with not type hinting support.
 #     - name: Lint with flake8
@@ -57,8 +57,8 @@ jobs:
 #         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pytest tests --disable-warnings
+        pytest
         
     - name: Build wheel
       run: |
-        python -m cibuildwheel --output-dir wheelhouse
+        python -m pip wheel -w wheelhouse .

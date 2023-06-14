@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from astropy.coordinates import SkyCoord, Angle
 
 
-def coord2str(coord: SkyCoord) -> tuple[str, str]:  
+def coord2str(coord: SkyCoord) -> tuple[str, str]:
     return coord.to_string("hmsdms", sep=":", precision=2, pad=True).split(" ")
 
 

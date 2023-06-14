@@ -1,0 +1,9 @@
+pytest
+pytest-astropy
+pytest-arraydiff
+pytest-mock
+pytest-cov
+pytest-openfiles
+wheel
+requests-mock
+pytest-asyncio

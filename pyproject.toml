@@ -33,7 +33,10 @@ dependencies = [
     "click",
     "sqlcipher3",
     "aiosmtplib",
-    "asyncclick"
+    "asyncclick",
+    "pathvalidate",
+    "pendulum",
+    "matplotlib_scalebar"
 ]
 dynamic = ["readme"]
 
@@ -51,7 +54,8 @@ dev = [
     "pytest-cov",
     "pytest-openfiles",
     "wheel",
-    "requests-mock"
+    "requests-mock",
+    "pytest-asyncio"
 ]
 
 [tool.setuptools.dynamic]
@@ -62,3 +66,10 @@ where = ["."]
 # include = ["aware*"]
 exclude = ["tests"]
 namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-c tests/conftest.py --disable-warnings"
+testpaths = [
+    "tests"
+]

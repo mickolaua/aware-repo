@@ -8,8 +8,14 @@ Modified: 2023-03-06
 import os.path
 
 from aware.alert import AlertParsers
+from aware.config import dev
+import pytest
 
 
+@pytest.mark.skipif(
+    not dev.value,
+    reason="To test parsing of mock data events, dev switch should be turned on",
+)
 def test(test_dir: str):
     p = AlertParsers["gcn.classic.voevent.LVC_PRELIMINARY"]
     with open(os.path.join(test_dir, "alert_messages", "gw_event.xml"), "rb") as f:
