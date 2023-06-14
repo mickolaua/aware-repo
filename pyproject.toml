@@ -34,6 +34,9 @@ dependencies = [
     "sqlcipher3",
     "aiosmtplib",
     "asyncclick",
+    "pathvalidate",
+    "pendulum",
+    "matplotlib_scalebar"
 ]
 dynamic = ["readme"]
 
@@ -51,7 +54,8 @@ dev = [
     "pytest-cov",
     "pytest-openfiles",
     "wheel",
-    "requests-mock"
+    "requests-mock",
+    "pytest-asyncio"
 ]
 
 [tool.setuptools.dynamic]

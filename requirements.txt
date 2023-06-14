@@ -24,3 +24,6 @@ click
 sqlcipher3
 aiosmtplib
 asyncclick
+pathvalidate
+pendulum
+matplotlib_scalebar
