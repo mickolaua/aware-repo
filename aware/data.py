@@ -5,6 +5,8 @@ Desc: telegram data objects and other useful stuff
 Created:  2023-05-21
 Modified: !date!
 """
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 import os

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 from astroplan.target import FixedTarget
 from astropy import units as u
