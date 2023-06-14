@@ -57,7 +57,7 @@ jobs:
 #         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pytest tests --disable-warnings
+        pytest
         
     - name: Build wheel
       run: |
