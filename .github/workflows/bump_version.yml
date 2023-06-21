@@ -1,12 +1,6 @@
 name: Bump version
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - maintance*
-      - release*
-      - hotfix*
+  push:
       
 jobs:
   build:
@@ -14,39 +8,38 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v3
-      with:
-        ref: ${{ github.sha }}
-        fetch-depth: '0'
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: '0'
 
-    - name: Bump version and push tag
-      id: tag_ver
-      uses: anothrNick/github-tag-action@1.64.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        WITH_V: true
-        PRERELEASE: true
-        PRERELEASE_SUFFIX: 'b'
-        MAJOR_STRING_TOKEN: 'BREAKING CHANGE:'
-        MINOR_STRING_TOKEN: 'FEAT:'
-        PATCH_STRING_TOKEN: 'FIX:'
-        NONE_STRING_TOKEN: 'NONE:'
-        
-    - name: Write version to pyproject.toml
-      run: sh ./tools/bump_version.sh ${{ steps.tag_ver.new_tag }}
+      - name: Bump version and push tag
+        id: tag_ver
+        uses: anothrNick/github-tag-action@1.64.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: false
+          PRERELEASE: false
+          MAJOR_STRING_TOKEN: 'BREAKING CHANGE:'
+          MINOR_STRING_TOKEN: 'FEAT:'
+          PATCH_STRING_TOKEN: 'FIX:'
+          NONE_STRING_TOKEN: 'NONE:'
+          
+      - name: Write version to pyproject.toml
+        run: sh ./tools/bump_version.sh ${{ steps.tag_ver.new_tag }}
 
 
-    - name: Update version in pyproject toml
-      run: |
-        sh ./tools/bump_version.sh ${{ steps.bump_version.outputs.new_tag }}
-  
-  # Taken from here: 
-  # https://gist.github.com/Broxzier/1ed980b8b3822d213e98042fc6a92040
-  - name: Amend the last commit
-    run: |
-      git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
-      git config --global user.name "${GITHUB_ACTOR}"
-      git commit -a --amend --no-edit
-      git push --force-with-lease
-      echo "Complete"
-        
+      - name: Update version in pyproject toml
+        run: |
+          sh ./tools/bump_version.sh ${{ steps.bump_version.outputs.new_tag }}
+    
+      # Taken from here: 
+      # https://gist.github.com/Broxzier/1ed980b8b3822d213e98042fc6a92040
+      - name: Amend the last commit
+        run: |
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config --global user.name "${GITHUB_ACTOR}"
+          git commit -a --amend --no-edit
+          git push --force-with-lease
+          echo "Complete"
+          
