@@ -28,7 +28,6 @@ jobs:
       - name: Write version to pyproject.toml
         run: sh ./tools/bump_version.sh ${{ steps.tag_ver.new_tag }}
 
-
       - name: Update version in pyproject toml
         run: |
           sh ./tools/bump_version.sh ${{ steps.bump_version.outputs.new_tag }}
