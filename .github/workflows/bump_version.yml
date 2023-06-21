@@ -34,4 +34,19 @@ jobs:
         
     - name: Write version to pyproject.toml
       run: sh ./tools/bump_version.sh ${{ steps.tag_ver.new_tag }}
+
+
+    - name: Update version in pyproject toml
+      run: |
+        sh ./tools/bump_version.sh ${{ steps.bump_version.outputs.new_tag }}
+  
+  # Taken from here: 
+  # https://gist.github.com/Broxzier/1ed980b8b3822d213e98042fc6a92040
+  - name: Amend the last commit
+    run: |
+      git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+      git config --global user.name "${GITHUB_ACTOR}"
+      git commit -a --amend --no-edit
+      git push --force-with-lease
+      echo "Complete"
         
