@@ -4,40 +4,59 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AWARE"
-version = "0.1.0"
+version = "0.3.0"
 authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
 requires-python = ">=3.8,<3.12"
 dependencies = [
     "wheel",
-    "poetry",
-    "pluggy",
     "numpy>=1.22.0",
     "scipy>=1.7.0",
+    "healpy",
+    "mhealpy",
     "pandas",
-    "geojson",
-    "sqlalchemy>=1.4",
+    "sqlalchemy>=2.0",
     "gcn_kafka",
     "confluent_kafka",
     "lxml",
+    "ligo.skymap",
     "python-dotenv",
     "colorama",
     "wheel",
     "matplotlib>=3.2.0",
-    "pendulum",
     "aiogram",
     "mocpy",
     "astropy>=4.0",
     "astropy_healpix>=0.7.0",
     "astroplan",
-    "astroquery"
+    "astroquery",
+    "alembic",
+    "click",
+    "sqlcipher3",
+    "aiosmtplib",
+    "asyncclick",
+    "pathvalidate",
+    "pendulum",
+    "matplotlib_scalebar"
 ]
 dynamic = ["readme"]
 
 [project.scripts]
 aware_sort_targets = "aware.scripts.aware_sort_targets:main"
+aware_astroplanner = "aware.scripts.aware_target_planner:main"
+aware_mosaic_planner = "aware.scripts.aware_mosaic_planner:main"
 
 [project.optional-dependencies]
-dev = ["pytest", "wheel"]
+dev = [
+    "pytest",
+    "pytest-astropy",
+    "pytest-arraydiff",
+    "pytest-mock",
+    "pytest-cov",
+    "pytest-openfiles",
+    "wheel",
+    "requests-mock",
+    "pytest-asyncio"
+]
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst"]}
@@ -47,3 +66,10 @@ where = ["."]
 # include = ["aware*"]
 exclude = ["tests"]
 namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-c tests/conftest.py --disable-warnings"
+testpaths = [
+    "tests"
+]

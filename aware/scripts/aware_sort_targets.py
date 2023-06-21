@@ -19,7 +19,7 @@ from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time, TimeDelta
 from aware.config import cfg
 from aware.logger import log
-from aware.planner import sites
+from aware.planning import sites
 from aware.sql import create_session
 
 
@@ -70,6 +70,9 @@ def try_read_table(
 
 
 def main():
+    start_time = time()
+    log.info("Started AWARE sort_targets on %s", datetime.now())
+
     # CLI arguments
     input_filename, output_filename, obs_time, site, airmass_plot = parse_cli_args()
     site = sites[site]
@@ -141,10 +144,9 @@ def main():
         log.error("output table not saved", exc_info=e)
     else:
         log.info("Saved the sorted list of targets to file: %s", output_filename)
+    
+    log.info("Finished in %.3g min %.3g sec", *divmod(time() - start_time, 60))
 
 
 if __name__ == "__main__":
-    start_time = time()
-    log.info("Started AWARE sort_targets on %s", datetime.now())
     main()
-    log.info("Finished in %.3g min %.3g sec", *divmod(time() - start_time, 60))

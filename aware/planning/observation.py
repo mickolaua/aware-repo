@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from astroplan.target import FixedTarget
 from astropy import units as u
 
+from ..field import Field
 from ..glade import GladeGalaxy
 
 __all__ = ["Observation"]
@@ -24,6 +25,5 @@ class Observation:
     exposure: u.Unit = 1 * u.s
     exp_count: int = 1
     filter: str = ""
-    target: FixedTarget | GladeGalaxy | None = None
+    target: FixedTarget | GladeGalaxy | Field | None = None
     sent_to: str = ""
-    

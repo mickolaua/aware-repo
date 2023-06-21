@@ -1,11 +1,12 @@
-from astropy.coordinates import SkyCoord
+from __future__ import annotations
+
+from astropy.coordinates import SkyCoord, Angle
 
 
 def coord2str(coord: SkyCoord) -> tuple[str, str]:
-    h, m, s = coord.ra.hms
-    s_rem = int((s - int(s)) * 10)
-    ra = "{:02d}:{:02d}:{:02d}.{:01d}".format(int(h), int(m), int(s), s_rem)
-    d, m, s = coord.dec.dms
-    dec = "{:+02d}:{:02d}:{:02d}".format(int(d), abs(int(m)), abs(int(s)))
+    return coord.to_string("hmsdms", sep=":", precision=2, pad=True).split(" ")
 
-    return ra, dec
+
+def coord_to_target_name(coord: SkyCoord) -> str:
+    ra, dec = coord.to_string("hmsdms", sep="", precision=2, pad=True).split(" ")
+    return f"J{ra}_{dec}".replace(".", "_")

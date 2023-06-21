@@ -19,9 +19,12 @@ from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from healpy.projector import CartesianProj
 from ligo.skymap.postprocess.crossmatch import crossmatch
+from ligo.skymap.postprocess.util import find_greedy_credible_levels
 
 from ..field import Field
 from ..site import FOV
+from ..angle import coord2str, coord_to_target_name
+from ..localization.main import lvk_uncert_level
 
 __all__ = ["mosaic_walker"]
 
@@ -147,11 +150,11 @@ def get_map(
 
 def mosaic_walker(
     hpx: np.ndarray,
-    moc: Table,
     fov: FOV,
     effective_field_area: float = 0.9,
     iter_count: int | None = None,
     box_size: int = 3,
+    prob: float = lvk_uncert_level.value,
 ) -> list[Field]:
     """
     Create the path for optimal coverage the localization region using the telescope
@@ -179,27 +182,30 @@ def mosaic_walker(
         a list of the sky field sorted in optimal order for mosaic scanning
     """
     fovx, fovy = fov.width.to_value("deg"), fov.height.to_value("deg")
-    arr, proj = get_map(hpx, [fovx * effective_field_area, fovy * effective_field_area])
+    c = find_greedy_credible_levels(hpx)
+    good_hpx = hpx.copy()
+    good_hpx[c > prob] = 0.0
+    arr, proj = get_map(
+        good_hpx, [fovx * effective_field_area, fovy * effective_field_area]
+    )
 
     if not iter_count:
-        npix = hp.get_map_size(hpx)
+        npix = hp.get_map_size(good_hpx)
         iter_count = npix
     result = get_list(map=arr, box_size=box_size, num_epochs=iter_count, proj=proj)
 
     ra = result[:, 0]
     dec = result[:, 1]
 
-    result = crossmatch(moc, SkyCoord(ra * u.deg, dec * u.deg), contours=(0.9,))
-    in_contours = result.searched_prob < 0.9
-    ra = ra[in_contours]
-    dec = dec[in_contours]
-
     sorted_targets = [
         Field(
-            SkyCoord(a, d, unit=["deg"] * 2),
+            SkyCoord(a * u.deg, d * u.deg),
             width=fov.width,
             height=fov.height,
-            name=f"field_{i+1}",
+            name=(
+                f"Field_{fovx:.2f}dx{fovy:.2f}d_"
+                f"{coord_to_target_name(SkyCoord(a*u.deg, d*u.deg))}"
+            ),
         )
         for i, (a, d) in enumerate(zip(ra, dec))
     ]

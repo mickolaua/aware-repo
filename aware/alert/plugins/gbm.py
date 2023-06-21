@@ -1,21 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
 from io import BytesIO, StringIO
-from typing import Any, Optional, Protocol
+from typing import Any
 
-import pendulum
-import requests
 from astropy import units as u
 from astropy.io import fits
+from astropy.time import Time
 
-from ..parser import AlertParser
-from ..target_info import TargetInfo
-
+from ...localization import CircularSkyMap
 from ...logger import log
 from ...voevent import VOEvent
-from ...localization import CircularSkyMap
+from ..parser import AlertParser
+from ..target_info import TargetInfo
 
 __all__ = ["GBMAlertParser"]
 
@@ -56,7 +52,7 @@ class GBMAlertParser(AlertParser):
         error_radius = float(pos2d.Error2Radius) + 2.0
 
         # Trigger time
-        isot = pendulum.parse(astro_coords.Time.TimeInstant.ISOTime.text)
+        isot = Time(astro_coords.Time.TimeInstant.ISOTime.text, format="isot").datetime
 
         # Trigger ID
         target = root.find(".//Param[@name='TrigID']").attrib["value"]
@@ -73,6 +69,7 @@ class GBMAlertParser(AlertParser):
             origin=GBMAlertParser.instrument,
             trigger_date=isot,
             importance=importance,
+            description=sky_map.describe()
         )
 
         return info

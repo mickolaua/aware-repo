@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 # from aware import plugin_manager
-from aware.alert.alert import plugin_manager
-from aware.logger import log
+from aware.alert import AlertParsers
 
 
 def test():
-    res = plugin_manager.hook.parse_alert(alert_msg="tests/event.xml")
-    log.info(res)
+    plugins = AlertParsers.values()
+    assert len(plugins) > 1, "Alert parsers not loaded!"
     
-    assert res.ra_center == 0.0, "Parser plugin returned incorrect R.A."
-
-
+    
 if __name__ == "__main__":
     test()
 

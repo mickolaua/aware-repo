@@ -10,14 +10,15 @@
 # Copyright:   (c) 2004-2022 AWARE Developers 
 # ----------------------------------------------------------------------------
 """
-from .plugin import register_plugins
-
+import collections
 
 __modules__ = [
     "config", 
     "consumer", 
-    "logger", 
-    "alert", 
+    "logger",
+    "angle",
+    "alert",
+    "field",
     "plugin", 
     "sql", 
     "topic", 
@@ -35,8 +36,10 @@ __modules__ = [
 
 # Patch astroplan since Sequence was moved to collections.abc
 try:
-    import collections
-    collections.Sequence = collections.abc.Sequence
+    from collections.abc import Sequence
+    collections.Sequence = Sequence
 except ImportError:
     pass
 
+# Load config options
+from . import config

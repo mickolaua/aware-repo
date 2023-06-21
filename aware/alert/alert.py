@@ -15,7 +15,7 @@ from ..voevent import VOEvent
 from ..localization import CircularSkyMap, Localization, LVCSkyMap
 
 
-__all__ = ["alert_parsers", "NewTargetInfo"]
+__all__ = ["alert_parsers", "TargetInfo"]
 
 
 

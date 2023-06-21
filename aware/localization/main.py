@@ -45,7 +45,7 @@ from ..glade import GladeCatalog, GladeGalaxy
 from ..logger import log
 from ..site import Site
 
-mpl.use("agg")
+# mpl.use("agg")
 
 
 __all__ = ["Localization", "CircularSkyMap", "LVCSkyMap"]
@@ -54,8 +54,8 @@ __all__ = ["Localization", "CircularSkyMap", "LVCSkyMap"]
 # Options
 coord_frame = CfgOption("coord_frame", "icrs", str)
 lvk_uncert_level = CfgOption("lvk_uncert_level", 0.9, float)
-max_healpix_resolution = CfgOption("max_healpix_resolution", 9, int)
-healpix_resolution_step = CfgOption("healpix_resolution_step", 2, int)
+max_healpix_resolution = CfgOption("max_healpix_resolution", 8, int)
+healpix_resolution_step = CfgOption("healpix_resolution_step", 1, int)
 max_workers = CfgOption("max_workers", 100, int)
 
 # Constants
@@ -93,8 +93,8 @@ class Localization:
     ) -> MOC:
         raise NotImplementedError
 
-    def observe(
-        self, site: Site, start: Time, stop: Time
+    async def observe(
+        self, site: Site, start: Time, stop: Time, **kwargs
     ) -> tuple[list[FixedTarget], str]:
         """Retrieve list of targets from localization region that should be
         observed as well as commentary on observation strategy.
@@ -121,7 +121,7 @@ class Localization:
         raise NotImplementedError
 
     def plot(
-        self, site: Site, start: Time, stop: Time, targets: list[FixedTarget]
+        self, site: Site, start: Time, stop: Time, targets: list[FixedTarget], **kwargs
     ) -> Axes:
         raise NotImplementedError
 
@@ -142,7 +142,7 @@ class CircularSkyMap(Localization):
         return MOC.from_cone(
             self.center().ra,
             self.center().dec,
-            self.error_radius() * u.deg,
+            self.error_radius(),
             max_depth,
             delta_depth=delta_depth,
         )
@@ -172,15 +172,18 @@ class CircularSkyMap(Localization):
         return dedent(
             f"""
             Area: {self.area().value:.3g} deg^2
-            RA: {ra} ({self.center().ra.deg:04f} d, J2000)
-            Dec: {dec} ({self.center().dec.deg:+04f}, J2000)
+            RA: {ra} ({self.center().ra.deg:.04f} d, J2000)
+            Dec: {dec} ({self.center().dec.deg:+.04f}d, J2000)
             l: {gal_coord.l.deg:.04f} d
             b: {gal_coord.b.deg:+.04f} d
             Error: {r}"""
         )
 
     async def observe(
-        self, site: Site, start: Time, stop: Time
+        self,
+        site: Site,
+        start: Time,
+        stop: Time,
     ) -> tuple[list[FixedTarget], str]:
         sorted_targets = []
         comment = f"Can not cover localization region with {site.full_name}"
@@ -239,12 +242,11 @@ class LVCSkyMap(Localization):
         dlat = coord.dec.deg.max() - coord.dec.deg.min()
         return max(dlon, dlat) / 2 * u.deg
 
-    def area(self, uncert_level: float = lvk_uncert_level.get_value()) -> u.Unit:
-        pixel_areas = ah.nside_to_pixel_area(self.nside).to("sr")
-        prob = self.probdensity * pixel_areas.value
-        mask = np.cumsum(prob) > uncert_level
-        a = pixel_areas[mask].to_value("deg2").sum()
-        return a * u.deg**2
+    def area(self, uncert_level: float = lvk_uncert_level.value) -> u.Unit:
+        c = find_greedy_credible_levels(self.hpx)
+        nside = hp.get_nside(self.hpx)
+        pix_area = hp.nside2pixarea(nside, degrees=True)
+        return len(c[c < uncert_level]) * pix_area * u.Unit("deg2")
 
     def describe(self) -> str:
         return dedent(
@@ -278,8 +280,14 @@ class LVCSkyMap(Localization):
         """
         area = ah.nside_to_pixel_area(self.nside).to_value(u.sr)
         prob = self.probdensity * area
+
+        try:
+            max_order = self.data.meta["MOCORDER"]
+        except (AttributeError, LookupError):
+            max_order = None
+
         moc = MOC.from_valued_healpix_cells(
-            self.uniq, prob, max_depth=max_depth, cumul_to=lvk_uncert_level.get_value()
+            self.uniq, prob, max_depth=max_order, cumul_to=lvk_uncert_level.get_value()
         )
         return moc
 
@@ -287,29 +295,24 @@ class LVCSkyMap(Localization):
         hpx = rasterize(self.data, order=order)
         return hpx
 
-    async def observe(self, site: Site, start: Time, stop: Time) -> list[GladeGalaxy]:
+    async def observe(
+        self,
+        site: Site,
+        start: Time,
+        stop: Time,
+        prob: float = lvk_uncert_level.get_value(),
+    ) -> tuple[list[GladeGalaxy | Field], str]:
         # For wide-field scopes plan the mosaic observations and for narrow-field
         # target observations of GLADE+ galaxies
         if site.fov.is_widefield:
-            from ..planner.mosaic import mosaic_walker
+            from ..planning.mosaic import mosaic_walker
 
             nside = hp.get_nside(self.hpx)
             npix = hp.get_map_size(self.hpx)
             ring_idx = hp.ring2nest(nside, np.arange(npix))
-            galaxies = mosaic_walker(self.hpx[ring_idx], self.data, site.fov)
+            galaxies = mosaic_walker(self.hpx[ring_idx], site.fov)
             comment = "Observe these sky fields in a given order."
         else:
-            coord = self.lon_lat()
-            pixel_area = ah.nside_to_pixel_area(ah.level_to_nside(8))
-            prob = self.probdensity * pixel_area  # .to_value("sr")
-            i = np.flipud(np.argsort(prob))
-            sorted_credible_levels = np.cumsum(prob[i])
-            credible_levels = np.empty_like(sorted_credible_levels)
-            credible_levels[i] = sorted_credible_levels
-
-            idx = np.argwhere(credible_levels <= lvk_uncert_level.get_value())
-            pixel_size = np.sqrt(pixel_area)
-
             # Query Vizier for Glade+ galaxies
             galaxies: list[GladeGalaxy] = []
             log.debug(
@@ -320,24 +323,14 @@ class LVCSkyMap(Localization):
             max_dL = self.distmu.to_value("Mpc") + 2 * self.distsigma.to_value("Mpc")
             min_dL = self.distmu.to_value("Mpc") - self.distsigma.to_value("Mpc")
 
-            if GladeCatalog.table and GladeCatalog.coord:
-                galaxies = GladeCatalog.query_local(
-                    self.data, dist_lo_bound=min_dL, dist_hi_bound=max_dL
-                )
-            else:
-                galaxies = GladeCatalog.query_vizier(
-                    coord[idx], width=pixel_size.to("deg"), height=pixel_size.to("deg")
-                )
+            galaxies = GladeCatalog.query_skymap_local(
+                self.data, dist_lo_bound=min_dL, dist_hi_bound=max_dL, prob=prob
+            )
 
-        # Since the number of targets is very large, just sort them
-        # firstly by R.A., then by Dec
         obs_targets = site.observable_targets(galaxies, start, stop)
-        sorted_targets = site.observation_order(
-            obs_targets, start_time=start, end_time=stop, method="radec"
-        )
 
-        if sorted_targets:
-            frac = len(sorted_targets) / len(galaxies)
+        if obs_targets:
+            frac = len(obs_targets) / len(galaxies)
             if frac < 1.0:
                 comment = (
                     "Aim telescope at these Glade+ galaxies. Note: "
@@ -348,7 +341,7 @@ class LVCSkyMap(Localization):
         else:
             comment = "Can not cover localization region with " f"{site.full_name}"
 
-        return sorted_targets, comment
+        return obs_targets, comment
 
     def plot(
         self,
@@ -356,6 +349,7 @@ class LVCSkyMap(Localization):
         start: Time,
         stop: Time,
         targets: list[FixedTarget | Field | GladeGalaxy],
+        prob: float = lvk_uncert_level.get_value(),
     ) -> Axes:
         c = find_greedy_credible_levels(self.hpx)
 
@@ -366,7 +360,7 @@ class LVCSkyMap(Localization):
             nested=True,
             colors="k",
             linewidths=2,
-            levels=[90],
+            levels=[prob * 100],
         )
         plt.clabel(cs, fontsize=6, inline=True)
 
@@ -387,27 +381,19 @@ class LVCSkyMap(Localization):
                 )
                 ax.add_artist(rect)
         else:
-            ax.scatter(
+            ax.plot(
                 [t.coord.ra.deg for t in targets] * u.deg,
                 [t.coord.dec.deg for t in targets] * u.deg,
                 transform=ax.get_transform("icrs"),
+                ls="",
+                ms=5,
+                marker=".",
+                label="GLADE+ galaxies"
             )
-        # ax.set_title(f"{table.meta['OBJECT']} localization map")
+            ax.legend(loc=(1.0, 0.85), markerscale=2)
 
-        # ax = plot_moc(self.moc(), projection="MOL", fig_kws={"figsize": (12, 6)})
-
-        scatter_kws = dict(label="GLADE+ galaxies", cmap="viridis_r", edgecolor="k")
-        colorbar_kws = dict(fraction=0.1, shrink=0.8)
-        # ax = plot_glade_galaxies(
-        #     targets, ax, scatter_kws=scatter_kws, colorbar_kws=colorbar_kws
-        # )
-
-        # cax.tick_params(labelsize=11)
-        # cax.set_ylabel("Redshift (z)", rotation=90, labelpad=15)
-        # ax.legend()
-
+        ax.set_title(f"Coverage map of GW event for {site.full_name}.\n")
         ax.set_xlabel("R.A.")
         ax.set_ylabel("Dec")
-        ax.set_title("Localization map")
 
         return ax

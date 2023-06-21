@@ -1,3 +1,3 @@
-__modules__ = ["main"]
+__modules__ = ["main", "find_chart", "util"]
 
 from .main import *

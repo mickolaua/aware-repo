@@ -1,0 +1,23 @@
+# v0.3.0
+
+Since this release, native Windows platform is not supported!
+
+## New planning system. 
+The observation planner tries to cover the most probable are of the GW event with mosaic and target observations. It is considered that in automatic mode, as GW skymap received and GW classified as BNS or NSBH, the observation plan will be created for a first night. The planner computes how many targets a telescope can observe during the night, provided that the telescope slew time is constant, but not zero. Also, it performs a kind of clustering with nearest neighbor algorithm, since we do not want a telescope "jumps" between sky fields or targets, significantly.
+
+## Updated Telegram bot
+The Telegram bot logic is rewritten in such way, that a user must subscribe to the user before receiving alert messages and observation plans. The subscription dialog is very intuitive and contains a list of alert types that could be received, and a list of telescopes for which the bot sends the observational data. 
+
+## Executable scripts
+Added several scripts to be able to perform sky map displaying, planning, etc in place. The possible use case is when a one wants to make plans for next days of observations (remember that 1st day planning is possibly performed) or re-create the plans, for instance, with an addition of other telescopes.
+
+## API
+Changes to API:
+- Config file is no more needed for using AWARE
+- All config options have attribute <code>value</code> for a convenient access to the value
+- Added more observatories
+- Based on observatory, there is a certain format for the list of targets/sky fields for observations
+- Telescopes have default values for photometric filter, exposure time, exposure count
+- Alert events are cross-matched before sending the alert messages in Telegram and creating the plans
+- Something more we forgot to mention :)
+

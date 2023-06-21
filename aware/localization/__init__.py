@@ -1,3 +1,3 @@
-__modules__ = ["main"]
+__modules__ = ["main", "util"]
 
 from .main import *

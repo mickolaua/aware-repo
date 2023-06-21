@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import atexit
 import logging
+from logging import LogRecord
 
 import colorama
 
@@ -77,13 +78,14 @@ class ColorFormatter(logging.Formatter):
             formatted_msg = colored_message(msg, colorama.Fore.RED)
 
         return formatted_msg
+    
 
 
 msg_format = "%(asctime)s.%(msecs)03d %(levelname)8s "
 msg_format += "%(module)s.%(funcName)s(): %(message)s"
 
 console = logging.StreamHandler()
-console.setFormatter(ColorFormatter())
+console.setFormatter(ColorFormatter(msg_format))
 
 def _remove_handlers() -> None:
     if log.hasHandlers():

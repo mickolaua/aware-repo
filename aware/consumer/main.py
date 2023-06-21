@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+import pickle
+import posixpath
 import sys
 from contextlib import suppress
 from datetime import datetime
@@ -27,41 +29,57 @@ from uuid import uuid4
 
 import gcn_kafka
 import numpy as np
+import pytz
 from astroplan.target import FixedTarget
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
-from confluent_kafka import (Consumer, KafkaError, KafkaException, Message,
-                             TopicPartition)
+from confluent_kafka import (
+    Consumer,
+    KafkaError,
+    KafkaException,
+    Message,
+    TopicPartition,
+)
 from confluent_kafka.error import ConsumeError
-from geojson import GeoJSON, dumps
-from geojson.geometry import MultiPoint, Point
-from matplotlib.axes import Axes
 
-from aware.credentials import Credentials
-from aware.data import TelegramAlertMessage, TelegramDataPackage
+# from aware.sftp import upload_files
+from pathvalidate import sanitize_filename, sanitize_filepath
+from sqlalchemy import inspect
 
-from ..alert.target_info import TargetInfo
+from aware.field import Field
+
+from .. import alert, site, sql
 from ..alert import AlertParsers
+from ..alert.crossmatch import (
+    crossmatch_alerts,
+    crossmatch_alerts_by_name,
+    replace_with_matched,
+)
+from ..alert.target_info import TargetInfo
 from ..config import CfgOption
+from ..credentials import Credentials
+from ..data import TelegramAlertMessage  # , TelegramSFTPUrl
+from ..data import TelegramDataPackage
 from ..glade import GladeCatalog, GladeGalaxy
 from ..json import JSON
 from ..logger import log
+from ..planning.planner import SkymapPlanner
+from ..planning.program import create_observation_program
 from ..site import Site, Telescopes
-from ..topic import TOPICS
-from .. import site, sql
+from ..topic import TOPICS, full_topic_name_to_short
+from ..io import create_event_folder
+from ..data import products_dir
 
 topics = CfgOption("topics", TOPICS, list)
 timeout = CfgOption("timeout", -1, int)
-start_date = CfgOption("start_date", datetime.now().isoformat(), datetime.fromisoformat)
-output_dir = CfgOption("output_dir", "products", str)
+start_date = CfgOption(
+    "start_date", datetime.now(tz=pytz.UTC).isoformat(), datetime.fromisoformat
+)
 default_site = CfgOption("default_site", "mondy_azt33ik", str)
 ntasks = CfgOption("ntasks", 8, int)
 max_localization_radius = CfgOption("max_localization_radius", 1, float)
 
-
-if not os.path.exists(output_dir.get_value()):
-    os.makedirs(output_dir.get_value())
 
 running = True
 
@@ -97,46 +115,38 @@ async def parse_alert(alert_msg: bytes, topic: str) -> TargetInfo | None:
 
 async def dump_alert_to_db(alert_msg: str, info: TargetInfo) -> None:
     # Create SQLite session
-    engine, session = sql.create_session()
+    engine, session = sql.models.create_session()
 
     # Create alert table if it is not exist (e.g. fresh database)
-    if not engine.has_table("alert"):
-        sql.Alert.metadata.create_all(engine)
+    ins = inspect(engine)
+    if not ins.has_table("alert"):
+        sql.models.Alert.__table__.create(bind=engine, checkfirst=True)
 
-    # Unique hash for the alert message to not add duplicates to the database
-    hash_md5 = md5(alert_msg.encode("utf-8")).hexdigest()
-
-    # No errors, add the alert to the database
+    # Add the alert to the database
     loc = info.localization
-    ra, dec = loc.center().ra.deg, loc.center().dec.deg
-    r1 = r2 = loc.error_radius()
-    localization = dumps(dict(r1=r1, r2=r2))
-    alert_tab = sql.Alert(
+    try:
+        ra, dec = loc.center().ra.deg, loc.center().dec.deg
+        r = loc.error_radius().to_value("deg")
+    except AttributeError:
+        ra = dec = r = None
+
+    loc = loc if loc else None
+
+    alert_tab = sql.models.Alert(
         alert_message=alert_msg,
         ra_center=ra,
         dec_center=dec,
-        error_radius1=r1,
-        error_radius2=r2,
-        localization=localization,
+        error_radius=r,
         trigger_date=info.trigger_date,
         event=info.event,
         origin=info.origin,
         importance=info.importance,
-        md5=hash_md5,
+        localization=pickle.dumps(loc),
     )
 
     with session:
-        try:
-            session.add(alert_tab)
-        except Exception as e:
-            pass
-
-        try:
-            session.commit()
-        except Exception as e:
-            log.warning("alert already in the database")
-        else:
-            log.info("alert added to the datebase")
+        session.add(alert_tab)
+        session.commit()
 
 
 async def get_glade_galaxies(info: TargetInfo) -> list[GladeGalaxy] | None:
@@ -212,7 +222,7 @@ def prepare_consumer(
     topics: Sequence[str] = topics.get_value(),
     start_offset: int = datetime_to_offset(start_date.get_value()),
 ) -> Consumer:
-    log.info("Reading messages from %s", start_date.get_value())
+    log.info("Reading messages from %s UT", start_date.get_value())
     log.info("Offset: %i", start_offset)
     consumer = gcn_kafka.Consumer(
         conf, client_id=credits.id, client_secret=credits.secret
@@ -338,7 +348,7 @@ class ConsumeLoop:
 
         if not await self._validate_message(message):
             log.exception(
-                "message has not passed validation, processing will not occur"
+                "Message has not passed validation, processing will not occur"
             )
             return
 
@@ -346,145 +356,275 @@ class ConsumeLoop:
 
         text = message.value().decode("utf-8")
         log.info("\n" + "#" * 8 + "\n" + "New message\n" + str(datetime.now()))
-        log.debug(text)
+        log.debug("Message topic: %s\n content: \n%s", message.topic(), message.value())
 
         # Retrieve target info
-        log.debug("\nparsing alert ...")
+        log.debug("\nParsing the alert ...")
         info = await parse_alert(message.value(), message.topic())
         if info is None:
+            log.debug(
+                "Alert was ignored. Possibly, it is only available in develop mode."
+            )
             return
         log.debug(info)
 
-        # # Save it to the local DB
-        # log.debug("\ndumping alert info to database ...")
-        # await dump_alert_to_db(text, info)
+        # Do not send plots and observational messages if the event matches previous
+        # ones, but does not refines localization area
+        send_obs_data = not info.rejected
+        refines_localization = True
 
-        # site = sites[default_site.get_value()]
+        # Store rejected (or retracted) event
+        if info.rejected:
+            log.debug("The senter rejected the event.")
+            m_id = alert.util.max_id()
+            if not m_id:
+                m_id = 1
+            else:
+                m_id += 1
+            alert.util.add_retracted(m_id, info.event, info.origin)
+
+        # Before sending to subscribers, check if this event matches older ones
+        if info.localization is not None:
+            matched_alerts = await crossmatch_alerts(info)
+        else:
+            send_obs_data = False
+            matched_alerts = await crossmatch_alerts_by_name(info.origin, info.event)
+
+        event = info.event
+        origin = info.origin
+
+        if matched_alerts:
+            sorted_alerts = sorted(matched_alerts, key=lambda _a: _a.trigger_date)
+            origin = sorted_alerts[0].origin
+            event = sorted_alerts[0].event
+            log.debug(
+                "Event %s %s matches %d already stored events (firstly mentioned as "
+                "%s %s)",
+                info.origin,
+                info.event,
+                len(matched_alerts),
+                origin,
+                event,
+            )
+            if info.rejected:
+                log.debug("All cross-matched events will be rejected.")
+                for al in matched_alerts:
+                    alert.util.add_retracted(al.id, al.event, al.origin)
+            else:
+                if info.localization:
+                    matched_error_radii = [a.error_radius for a in matched_alerts]
+                    i_min = np.argmin(matched_error_radii)
+                    matched_error_radius = matched_error_radii[i_min]
+                    error_radius = info.localization.error_radius().to_value(u.deg)
+
+                    if error_radius < matched_error_radius:
+                        log.debug(
+                            "%s %s refines localization radius for %d already stored"
+                            "events",
+                            origin,
+                            event,
+                            len(matched_alerts),
+                        )
+                        send_obs_data = True
+                        refines_localization = True
+                    else:
+                        send_obs_data = False
+                        refines_localization = False
 
         # Send the alert message before making plots and planning
         uuid = uuid4().hex
 
+        # Save it to the local DB
+        log.debug("\nDumping the alert into the database ...")
+        await dump_alert_to_db(text, info)
+
+        # Create alert message for Telegram subscribers.
+        # The alert is not presented in the database, we consider it new.
+        # When the alert that matches at-least one alert written in the database
+        # we provide first mention of the event origin and name.
+        # If the alert provides more neat localiztion area we notify user on that and
+        # send them the updated observational data in upcoming messages.
         async with self._lock:
             senter = info.origin
+            event_head = "Event" if matched_alerts else "New event"
+            trigger_ = info.trigger_date.replace(tzinfo=None).isoformat("T", "seconds")
+            pack_type = full_topic_name_to_short(info.packet_type)
             body = (
-                f"Event: {info.event}\n"
-                f"Trigger: {info.trigger_date} UTC\n"
-                f"Packet: {info.packet_type}\n"
-                f"{info.localization.describe()}\n"
+                f"[{event_head}]\n"
+                + f"From: {origin}\n"
+                + f"Trigger ID: {info.event}\n"
+                + f"Trigger Date: {trigger_ } UTC\n"
+                + f"Packet: {pack_type}\n"
+                + (
+                    f"First mention: {origin} {event}\n"
+                    if event_head == "Event"
+                    else ""
+                )
+                + (f"{info.description}\n" if info.description else "")
+                + (
+                    (
+                        f"Localization area for {origin} {event} refined."
+                        if event_head == "Event"
+                        and refines_localization
+                        and info.localization
+                        else ""
+                    )
+                    if not info.rejected
+                    else "EVENT IS RETRACKED!"
+                )
             )
-            alert_message = TelegramAlertMessage(uuid, senter, body)
+            alert_message = TelegramAlertMessage(uuid, senter, body, info.packet_type)
             await que.put(alert_message)
 
-        sites = list(site.Telescopes[name] for name in site.default_sites.get_value())
-        now = Time(datetime.now().isoformat(), format="isot")
-        loc = info.localization
-        jsons: list[JSON] = []
-        axes: list[Axes] = []
-        for i, s in enumerate(sites):
-            start, stop = s.nearest_observation_window(now)
-
-            # Can not be observed due to its location
-            if start is None or stop is None:
-                continue
-
-            # If nearest observational window is located after 1 day since
-            # today, it is considered that targets are not observable
-            if info.origin == "LVC" and start.jd - now.jd >= 1:
-                sorted_targets = []
-                comment = (
-                    "Targets do not cross the horizon at "
-                    f"{s.full_name} within 24 hours."
-                )
-            else:
-                # TODO: Let localization itself decide if it is needed
-                # to make observational list for each site or just one
-                # universal list
-                sorted_targets, comment = await loc.observe(s, start, stop)
-
-            # Dump sorted targets to JSON payload
-            if sorted_targets:
-                for tgt in sorted_targets:
-                    tgt.name = info.event
-                jsons.append(JSON(sorted_targets, s, info, comment))
-
-                # TODO: Let localization itself decide if it is needed
-                # to make plots for each site or just one universal plot
-                if info.origin == "LVC":
-                    if not axes:
-                        axes = [loc.plot(s, start, stop, sorted_targets)]
-                else:
-                    ax = loc.plot(s, start, stop, sorted_targets)
-                    axes.append(ax)
-
-            if info.origin == "LVC":
-                break
-
-        # If payload is not empty
-        if jsons:
-            if len(jsons) > 1:
-                jsons[0].add_jsons(*jsons[1:])
-            payload = jsons[0].to_string()
-            fname = os.path.join(output_dir.get_value(), f"targets_{uuid}.json")
-            await save_file(fname, payload)
-        else:
-            # Do not send empty payload
-            fname = ""
-
-        plot_fnames: list[str] = []
-        for i, ax in enumerate(axes):
-            plot_fname = os.path.join(
-                output_dir.get_value(), f"targets_{uuid}_{i+1}.png"
+        # We can send observational data
+        if send_obs_data and not info.rejected:
+            sites = list(
+                s
+                for s in site.Telescopes.values()
+                if s.name in site.default_sites.value
             )
-            fig = ax.get_figure()
-            fig.savefig(plot_fname)
-            plot_fnames.append(plot_fname)
+            now = Time(datetime.now().isoformat(), format="isot")
+            loc = info.localization
+            local_files = []
+            dist_files = []
 
-        # vis.plot_objects_on_localization(
-        #     objects=sorted_targets, localization=info.localization,
-        #     output_filename=plot_fname
-        # )
+            # TODO:
+            # For those scopes that has large enough FOV to cover the entire sky map
+            # send airmass plot, otherwise plan multiple scope observations
 
-        async with self._lock:
-            data_package = TelegramDataPackage(uuid, info, fname, plot_fnames)
-            await que.put(data_package)
+            # Temporaly plan multiple scopes on LVK sky maps only
+            if origin in {"LVC", "LVK"}:
+                planner = SkymapPlanner(
+                    loc.data,
+                    event_name=f"{origin}_{event}",
+                    working_directory=create_event_folder(
+                        origin, event, products_dir.value
+                    ),
+                )
+                wide_field_telescopes = list(
+                    s.name for s in sites if s.fov.is_widefield
+                )
+                narrow_field_telescopes = list(
+                    s.name for s in sites if not s.fov.is_widefield
+                )
+                planner.plan_observations(
+                    wide_field_telescopes, narrow_field_telescopes
+                )
+                planner.save_plan_fits(wide_field_telescopes, narrow_field_telescopes)
+                saved_blocks = planner.save_blocks()
+
+                all_blocks = planner.field_blocks
+                all_blocks.update(planner.target_blocks)
+                for name, fields in all_blocks.items():
+                    if fields:
+                        ax = loc.plot(
+                            site.Telescopes[name],
+                            start=None,
+                            stop=None,
+                            targets=fields,
+                        )
+                        outdir = os.path.join(planner.working_directory, name)
+                        plot_name = (
+                            f"plan_map_{origin}_{event}_{name}_day{planner.day}.png"
+                        )
+                        plot_name_safe = sanitize_filename(
+                            plot_name, replacement_text="_"
+                        )
+                        plot_path = os.path.join(outdir, plot_name_safe)
+                        fig = ax.get_figure()
+                        fig.savefig(plot_path)
+
+                        async with self._lock:
+                            data_package = TelegramDataPackage(
+                                uuid,
+                                info,
+                                info.packet_type,
+                                site.Telescopes[name],
+                                saved_blocks[name],
+                                plot_path,
+                            )
+                            await que.put(data_package)
+
+            else:
+                for i, s in enumerate(sites):
+                    start, stop = s.nearest_observation_window(now)
+
+                    # Can not be observed due to its location
+                    if start is None or stop is None:
+                        continue
+
+                    # If nearest observational window is located after 1 day since
+                    # today, it is considered that targets are not observable
+                    if start.jd - now.jd >= 1:
+                        sorted_targets = []
+                        comment = (
+                            "Targets do not cross the horizon at "
+                            f"{s.full_name} within 24 hours."
+                        )
+                    else:
+                        sorted_targets, comment = await loc.observe(s, start, stop)
+
+                    # Dump sorted targets
+                    if sorted_targets:
+                        obs_program = create_observation_program(s, sorted_targets)
+                        ax = loc.plot(s, start, stop, sorted_targets)
+                    else:
+                        obs_program = ""
+
+                    # If observational program is not empty
+                    if obs_program:
+                        outdir = os.path.join(
+                            products_dir.get_value(),
+                            f"{origin}_{event}",
+                            f"{s.name}",
+                        )
+
+                        # Each event will be located in a separate subfolder
+                        if not os.path.exists(outdir):
+                            os.makedirs(outdir)
+
+                        event_name = f"targets_{origin}_{event}_{s.name}"
+                        fname = os.path.join(
+                            outdir,
+                            f"{event_name}.list",
+                        )
+                        fname_safe = sanitize_filepath(fname, replacement_text="_")
+                        await save_file(fname_safe, obs_program)
+
+                        plot_fname = os.path.join(outdir, f"{event_name}.png")
+                        plot_fname_safe = sanitize_filepath(
+                            plot_fname, replacement_text="_"
+                        )
+                        fig = ax.get_figure()
+                        fig.savefig(plot_fname)
+                    else:
+                        # Do not send empty observational program
+                        fname = ""
+                        plot_fname = ""
+
+                    async with self._lock:
+                        data_package = TelegramDataPackage(
+                            uuid, info, info.packet_type, s, fname, plot_fname
+                        )
+                        await que.put(data_package)
+
+        #     if obs_program:
+        #         upload_files(fname, f"/uploads/{info.event}/{s.name}/targets_{uuid}_{s.name}.{s.default_target_list_fmt}")
+        #         upload_files(plot_fname, f"/uploads/{info.event}/{s.name}/targets_{uuid}_{s.name}.png")
+
+        # async with self._lock:
+        #     url = TelegramSFTPUrl(uuid, info.event, "", f"/uploads/{uuid}")
+        #     await que.put(url)
+
+        # async with self._lock:
+        #     data_package = TelegramDataPackage(
+        #         uuid, info, s.full_name, fname, plot_fname
+        #     )
+        #     await que.put(data_package)
 
         self._commited_messages += 1
         if self._commited_messages % self._max_commit_messages:
             self._consumer.commit(asynchronous=True)
 
-        # start, stop = await site.nearest_observation_window(
-        #     Time(info.trigger_date)
-        # )
-        # log.info(start.isot)
-        # log.info(stop.isot)
-        # sorted_targets = await info.localization.observe(site, start, stop)
-        # log.info(sorted_targets)
-        # fname = ""
-        # if sorted_targets:
-        #     log.debug(
-        #         "\n created observational order for %d of targets observable",
-        #         len(sorted_targets)
-        #     )
-        #     log.debug("saving ordered list of galaxies to JSON-file")
-        #     serializer = JSON_Serializer(sorted_targets, site, info)
-        #     dumped_galaxies = serializer.serialize()
-
-        #     fname = os.path.join(
-        #         output_dir.get_value(), f"targets_{uuid}.json"
-        #     )
-
-        #     await save_file(fname, dumped_galaxies)
-
-        # plot_fname = os.path.join(
-        #     output_dir.get_value(), f"targets_{uuid}.png"
-        # )
-        # vis.plot_objects_on_localization(
-        #     objects=sorted_targets,
-        #     localization=info.localization,
-        #     output_filename=plot_fname
-        # )
-
-        # que.put(DataPackage(info, fname, plot_fname), block=True)
-
     def to_thread(self) -> Thread:
-        return Thread(target=self.run, daemon=True)
+        return Thread(name="consumer", target=self.run, daemon=True)
