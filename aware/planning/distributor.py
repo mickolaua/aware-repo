@@ -6,26 +6,22 @@ Created:  2023-06-04
 Modified: !date!
 """
 from __future__ import annotations
+
+from datetime import datetime
 from typing import Any, Sequence
 
+import healpy as hp
 import numpy as np
 from astropy import units as u
-from astropy.table import Table
 from astropy.time import Time
-from astroplan.target import FixedTarget
-from astroplan.scheduling import ObservingBlock
-from astroplan.constraints import MoonSeparationConstraint, MoonIlluminationConstraint
-from datetime import datetime
-import healpy as hp
+from astropy.coordinates import SkyCoord
 
-from aware.field import Field
-from aware.glade.main import GladeGalaxy
-
-from ..glade.main import GladeGalaxy, GladeCatalog
-from ..site import Telescopes, default_sites
 from ..field import Field
-from .mosaic import mosaic_walker
+from ..glade.main import GladeGalaxy
 from ..localization.main import lvk_uncert_level
+from ..site import Telescopes, default_sites
+from .mosaic import mosaic_walker
+from ..logger import log
 
 
 def _targets_per_night(
@@ -43,7 +39,9 @@ def _targets_per_night(
 
 def _get_target_hpx_id(hpx: np.ndarray, target: GladeGalaxy) -> int:
     nside = hp.get_nside(hpx)
-    ipix = hp.ang2pix(nside, target.coord.ra.deg, target.coord.dec.deg, lonlat=True)
+    ipix = hp.ang2pix(
+        nside, target.coord.ra.deg, target.coord.dec.deg, lonlat=True, nest=True
+    )
     return ipix
 
 
@@ -140,90 +138,101 @@ class TargetDistributor:
         step_sep: u.Unit = 1 * u.deg,
         max_sep: u.Unit = 360 * u.deg,
         max_targets: int | None = None,
-        disable_intersections: bool = True
+        disable_intersections: bool = True,
+        initial_time: Time | datetime | None = None,
     ) -> dict[str, list[GladeGalaxy]]:
-        telescopes = [
-            Telescopes[i] for i in telescope_ids if not Telescopes[i].fov.is_widefield
-        ]
+        telescopes = [Telescopes[i] for i in telescope_ids]
         groups = {}
-        for tel in telescopes:
-            start, stop = tel.nearest_observation_window(Time(datetime.now()))
-
-            if start is None or stop is None:
-                groups[tel.name] = []
-            else:
-                # Sort master list of galaxies by probability so during observations
-                # we walk around most probable pixels
-                sorted_galaxies = set(
-                    sorted(
-                        self.objects,
-                        key=lambda _t: self.hpx[_get_target_hpx_id(self.hpx, _t)],
-                        reverse=True,
-                    )
+        if list(self.objects):
+            for tel in telescopes:
+                it = (
+                    Time(initial_time)
+                    if initial_time is not None
+                    else Time(datetime.now())
                 )
+                start, stop = tel.nearest_observation_window(it)
+                if start is None or stop is None:
+                    groups[tel.name] = []
+                else:
+                    try:
+                        # How many targets per one night can a telescope observe?
+                        N = _targets_per_night(
+                            start,
+                            stop,
+                            exptime=tel.default_exposure,
+                            expcount=tel.default_exposure_number,
+                            slew_time=tel.default_slew_rate,
+                        )
+                        if max_targets is not None:
+                            N = max_targets if max_targets < N else N
 
-                # Retrieve the list of galaxies that a telescope can observe
-                obs_targets = tel.observable_targets(
-                    list(sorted_galaxies), start_time=start, end_time=stop
+                        # Create a cluster of targets for further observing
+                        # We are trying to keep targets in the cluster so a telescope
+                        # Will not jump through targets that could be at a large
+                        # separation
+                        i = 0
+                        sep = init_sep
+                        obs_targets = tel.observable_targets(
+                            list(self.objects), start_time=start, end_time=stop
+                        )
+                        most_probable_target = max(
+                            obs_targets,
+                            key=lambda t: self.hpx[_get_target_hpx_id(self.hpx, t)],
+                        )
+                        planned_targets = [most_probable_target]
+
+                        # Expand separation limit while there are enough targets to
+                        # include into plan
+                        targets = list(set(obs_targets) - {most_probable_target})
+                        coord = SkyCoord([t.coord for t in targets])
+                        separations = most_probable_target.coord.separation(coord)
+                        idx = np.argwhere(separations <= max_sep).ravel()
+                        if idx.size:
+                            sorted_neighbors = [targets[i] for i in idx]
+                            sorted_neighbors.sort(
+                                key=lambda t: t.coord.separation(
+                                    most_probable_target.coord
+                                )
+                            )
+                            planned_targets += sorted_neighbors[: N - 1]
+
+                        # Sort planned targets for more efficient observation
+                        ordered_targets = tel.observation_order(
+                            planned_targets,
+                            start_time=start,
+                            end_time=stop,
+                            method="nearest",
+                        )
+                        groups[tel.name] = ordered_targets
+
+                        # When we want to plan only unique targets, we update master
+                        # list on planning for each telescope
+                        if disable_intersections:
+                            self.objects.difference_update(planned_targets)
+
+                            # Mark planned pixels
+                            self.hpx = paint_planned_healpix_from_galaxies(
+                                self.hpx, planned_targets
+                            )
+                    except (LookupError, AttributeError, ValueError) as e:
+                        log.error(
+                            "Observations can not be carried out with %s",
+                            tel.full_name,
+                            exc_info=e,
+                        )
+
+            # In the intersection mode, update master list after planning occured for
+            # all the telescopes, since we allow the same galaxies in plans.
+            if not disable_intersections and groups.values():
+                targets_to_remove: list[GladeGalaxy] = []
+                for v in groups.values():
+                    targets_to_remove += v
+                self.objects.difference_update(targets_to_remove)
+
+                # Mark planned pixels
+                self.hpx = paint_planned_healpix_from_galaxies(
+                    self.hpx, targets_to_remove
                 )
-
-                # How many targets per one night can a telescope observe?
-                N = _targets_per_night(
-                    start,
-                    stop,
-                    exptime=tel.default_exposure,
-                    expcount=tel.default_exposure_number,
-                    slew_time=tel.default_slew_rate,
-                )
-                if max_targets is not None:
-                    N = max_targets if max_targets < N else N
-                obs_targets = list(obs_targets[:N])
-
-                # Pack planned targets for a current telescope
-                planned_targets = []
-                sorted_targets = tel.observation_order(
-                    obs_targets, start_time=start, end_time=stop, method="radec"
-                )
-
-                # Create a cluster of targets for further observing
-                # We are trying to keep targets in the cluster so a telescope
-                # Will not jump through targets that could be at a large separation
-                i = 0
-                sep = init_sep
-
-                # Expand separation limit while there are enough targets to include
-                # into plan
-                while i < N and sep < max_sep:
-                    for t in sorted_galaxies:
-                        if t in sorted_targets:
-                            if i and planned_targets:
-                                if (
-                                    planned_targets[0] is not t
-                                    and planned_targets[0].coord.separation(t.coord)
-                                    < sep
-                                ):
-                                    planned_targets.append(t)
-                            else:
-                                planned_targets.append(t)
-
-                        i += 1
-
-                    sep += step_sep
-
-                # Sort planned targets for more efficient observation
-                ordered_targets = tel.observation_order(
-                    planned_targets, start_time=start, end_time=stop, method="nearest"
-                )
-                groups[tel.name] = ordered_targets
-
-                if disable_intersections:
-                    # Update master list, remove already planned targets
-                    self.objects.difference_update(planned_targets)
-
-                    # Mark planned pixels
-                    self.hpx = paint_planned_healpix_from_galaxies(
-                        self.hpx, self.objects
-                    )
 
         self.day += 1
         self.plans[self.day] = groups
@@ -249,47 +258,64 @@ class FieldDistributor:
         telescope_ids: Sequence[str] = default_sites.value,
         prob: float = lvk_uncert_level.value,
         disable_intersections: bool = True,
+        initial_time: Time | datetime | None = None,
     ) -> dict[str, list[Field]]:
-        telescopes = [
-            Telescopes[i] for i in telescope_ids if Telescopes[i].fov.is_widefield
-        ]
+        telescopes = [Telescopes[i] for i in telescope_ids]
         groups = {}
         for tel in telescopes:
-            start, stop = tel.nearest_observation_window(Time(datetime.now()))
+            init = (
+                Time(initial_time) if initial_time is not None else Time(datetime.now())
+            )
+            start, stop = tel.nearest_observation_window(init)
 
             if start is None or stop is None:
                 groups[tel.name] = []
             else:
-                # First off, walk the contours and retrieve all possible sky fields
-                # of a size of the telescope FOV
-                nside = hp.get_nside(self.hpx)
-                npix = hp.get_map_size(self.hpx)
-                ring_idx = hp.ring2nest(nside, np.arange(npix))
-                fields = mosaic_walker(self.hpx[ring_idx], tel.fov, prob=prob)
+                try:
+                    # First off, walk the contours and retrieve all possible sky fields
+                    # of a size of the telescope FOV
+                    nside = hp.get_nside(self.hpx)
+                    npix = hp.get_map_size(self.hpx)
+                    ring_idx = hp.ring2nest(nside, np.arange(npix))
+                    fields = mosaic_walker(self.hpx[ring_idx], tel.fov, prob=prob)
 
-                # Retrieve the list of fields that a telescope can observe in principal
-                obs_targets = tel.observable_targets(
-                    fields, start_time=start, end_time=stop
-                )
+                    # Retrieve the list of fields that a telescope can observe in
+                    # principal
+                    obs_targets = tel.observable_targets(
+                        fields, start_time=start, end_time=stop
+                    )
 
-                # How many fields per one night can a telescope observe?
-                N = _targets_per_night(
-                    start,
-                    stop,
-                    tel.default_exposure,
-                    tel.default_exposure_number,
-                    tel.default_slew_rate,
-                )
-                obs_targets = list(obs_targets[:N])
+                    # How many fields per one night can a telescope observe?
+                    N = _targets_per_night(
+                        start,
+                        stop,
+                        tel.default_exposure,
+                        tel.default_exposure_number,
+                        tel.default_slew_rate,
+                    )
+                    obs_targets = list(obs_targets[:N])
 
-                # Add to the group
-                groups[tel.name] = obs_targets
+                    # Add to the group
+                    groups[tel.name] = obs_targets
 
-                # Mark planned pixels
-                if disable_intersections:
-                    self.hpx = paint_planned_healpix_from_fields(self.hpx, obs_targets)
+                    # Mark planned pixels
+                    if disable_intersections:
+                        self.hpx = paint_planned_healpix_from_fields(
+                            self.hpx, obs_targets
+                        )
+                except (LookupError, AttributeError, ValueError) as e:
+                    log.error(
+                        "Observations can not be carried out for %s",
+                        tel.full_name,
+                        exc_info=e,
+                    )
 
         self.day += 1
         self.plans[self.day] = groups
 
         return groups
+
+    def reset(self):
+        self.hpx = self._orig_hpx.copy()
+        self.day = 0
+        self.plans = {}
