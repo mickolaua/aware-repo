@@ -1,6 +1,13 @@
 name: Bump version
 on:
-  push:
+  pull_request:
+    branches:
+      - main
+      - maintance/**
+      - release/**
+      - hotfix/**
+    types:
+      - closed
       
 jobs:
   build:
@@ -23,18 +30,20 @@ jobs:
           MAJOR_STRING_TOKEN: 'BREAKING CHANGE:'
           MINOR_STRING_TOKEN: 'FEAT:'
           PATCH_STRING_TOKEN: 'FIX:'
-          NONE_STRING_TOKEN: 'NONE:'
-          
-      - name: Write version to pyproject.toml
-        run: sh ./tools/bump_version.sh ${{ steps.tag_ver.new_tag }}
+          NONE_STRING_TOKEN: 'NONE:' 
+          DEFAULT_BUMP: 'none'
+          INITIAL_VERSION: '0.3.0'
+        continue-on-error: true
 
       - name: Update version in pyproject toml
+        if: steps.tag_ver.outcome == 'success'
         run: |
-          sh ./tools/bump_version.sh ${{ steps.bump_version.outputs.new_tag }}
+          sh ./tools/bump_version.sh ${{ steps.tag_ver.outputs.new_tag }}
     
       # Taken from here: 
       # https://gist.github.com/Broxzier/1ed980b8b3822d213e98042fc6a92040
-      - name: Amend the last commit
+      - name: Amend the last commit on version bumping
+        if: steps.tag_ver.outcome == 'success'
         run: |
           git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
           git config --global user.name "${GITHUB_ACTOR}"
