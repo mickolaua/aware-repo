@@ -1,6 +1,6 @@
 <?xml version = '1.0' encoding = 'UTF-8'?>
 <voe:VOEvent
-      ivorn="ivo://nasa.gsfc.gcn/Fermi#GBM_Fin_Pos2023-03-01T16:28:43.24_699380928_0-997"
+      ivorn="ivo://nasa.gsfc.gcn/Fermi#GBM_Alert_2023-07-16T04:54:44.12_711176089_1-642"
       role="observation" version="2.0"
       xmlns:voe="http://www.ivoa.net/xml/VOEvent/v2.0"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -13,63 +13,47 @@
       <contactPhone>+1-301-286-1632</contactPhone>
       <contactEmail>Julie.E.McEnery@nasa.gov</contactEmail>
     </Author>
-    <Date>2023-03-01T16:38:07</Date>
+    <Date>2023-07-16T04:54:50</Date>
     <Description>This VOEvent message was created with GCN VOE version: 15.08 17jun22</Description>
   </Who>
   <What>
-    <Param name="Packet_Type"    value="115" />
-    <Param name="Pkt_Ser_Num"    value="2" />
-    <Param name="TrigID"         value="699380928" ucd="meta.id" />
-    <Param name="Sequence_Num"   value="0" ucd="meta.id.part" />
-    <Param name="Burst_TJD"      value="20004" unit="days" ucd="time" />
-    <Param name="Burst_SOD"      value="59323.24" unit="sec" ucd="time" />
-    <Param name="Burst_Inten"    value="0" unit="cts" ucd="phot.count" />
-    <Param name="Data_Integ"     value="0.000" unit="sec" ucd="time.interval" />
-    <Param name="Burst_Signif"   value="0.00" unit="sigma" ucd="stat.snr" />
-    <Param name="Phi"            value="105.00" unit="deg" ucd="pos.az.azi" />
-    <Param name="Theta"          value="31.00" unit="deg" ucd="pos.az.zd" />
-    <Param name="Algorithm"      value="41731" unit="dn" />
-    <Param name="Lo_Energy"      value="44032" unit="keV"  />
-    <Param name="Hi_Energy"      value="279965" unit="keV"  />
-    <Param name="Trigger_ID"     value="0x04000001" />
-    <Param name="Misc_flags"     value="0x40000000" />
-    <Group name="Trigger_ID" >
-      <Param name="Def_NOT_a_GRB"         value="false" />
-      <Param name="Target_in_Blk_Catalog" value="false" />
-      <Param name="Human_generated"       value="true" />
-      <Param name="Robo_generated"        value="false" />
-      <Param name="LAT_FoV"               value="true" />
-      <Param name="Long_short"            value="Short" />
-      <Param name="Spatial_Prox_Match"    value="false" />
-      <Param name="Temporal_Prox_Match"   value="false" />
-      <Param name="Test_Submission"       value="false" />
-    </Group>
+    <Param name="Packet_Type"     value="110" />
+    <Param name="Pkt_Ser_Num"     value="34" />
+    <Param name="TrigID"          value="711176089" ucd="meta.id" />
+    <Param name="Sequence_Num"    value="1" ucd="meta.id.part" />
+    <Param name="Burst_TJD"       value="20141" unit="days" ucd="time" />
+    <Param name="Burst_SOD"       value="17684.12" unit="sec" ucd="time" />
+    <Param name="Trig_Signif"     value="6.0" unit="sigma" ucd="stat.snr" />
+    <Param name="Trig_Dur"        value="0.064" unit="sec" ucd="time.interval" />
+    <Param name="Lo_Chan_Index"   value="2" unit="dn" />
+    <Param name="Hi_Chan_Index"   value="2" unit="dn" />
+    <Param name="Lo_Chan_Energy"  value="23" unit="keV" ucd="em.gamma" />
+    <Param name="Hi_Chan_Energy"  value="47" unit="keV" ucd="em.gamma" />
+    <Param name="ADC_Lo_Chan"     value="143" unit="dn" />
+    <Param name="ADC_Hi_Chan"     value="258" unit="dn" />
+    <Param name="Algorithm"       value="25" />
+    <Param name="Dets"            value="0x28" />
+    <Param name="Misc_flags"      value="0x00000000" />
+    <Param name="SC_Long"         value="198.017" unit="deg" ucd="pos.earth.lon" />
+    <Param name="SC_Lat"          value="-12.167" unit="deg" ucd="pos.earth.lat" />
     <Group name="Misc_Flags" >
-      <Param name="Values_Out_of_Range"   value="false" />
-      <Param name="Flt_Generated"         value="false" />
-      <Param name="Gnd_Generated"         value="true" />
-      <Param name="CRC_Error"             value="false" />
+      <Param name="Values_Out_of_Range"     value="false" />
+      <Param name="Near_Bright_Star"        value="false" />
+      <Param name="Err_Circle_in_Galaxy"    value="false" />
+      <Param name="Galaxy_in_Err_Circle"    value="false" />
+      <Param name="TOO_Generated"           value="false" />
+      <Param name="Trig_time_is_SecHdrTime" value="false" />
+      <Param name="Delayed_Transmission"    value="false" />
+      <Param name="Updated_Notice"          value="false" />
+      <Param name="Flt_Generated"           value="true" />
+      <Param name="Gnd_Generated"           value="false" />
+      <Param name="Temporal_Prox_Match"     value="false" />
+      <Param name="CRC_Error"               value="false" />
     </Group>
-    <Param name="LightCurve_URL" value="http://heasarc.gsfc.nasa.gov/FTP/fermi/data/gbm/triggers/2023/bn230301687/quicklook/glg_lc_medres34_bn230301687.gif" ucd="meta.ref.url" />
-    <Param name="LocationMap_URL" value="http://heasarc.gsfc.nasa.gov/FTP/fermi/data/gbm/triggers/2023/bn230301687/quicklook/glg_locplot_all_bn230301687.png" ucd="meta.ref.url" />
-    <Param name="Coords_Type"    value="1" unit="dn" />
-    <Param name="Coords_String"  value="source_object" />
-    <Group name="Obs_Support_Info" >
-      <Description>The Sun and Moon values are valid at the time the VOEvent XML message was created.</Description>
-      <Param name="Sun_RA"        value="342.31" unit="deg" ucd="pos.eq.ra" />
-      <Param name="Sun_Dec"       value="-7.50" unit="deg" ucd="pos.eq.dec" />
-      <Param name="Sun_Distance"  value="83.72" unit="deg" ucd="pos.angDistance" />
-      <Param name="Sun_Hr_Angle"  value="-5.64" unit="hr" />
-      <Param name="Moon_RA"       value="97.77" unit="deg" ucd="pos.eq.ra" />
-      <Param name="Moon_Dec"      value="27.71" unit="deg" ucd="pos.eq.dec" />
-      <Param name="MOON_Distance" value="45.73" unit="deg" ucd="pos.angDistance" />
-      <Param name="Moon_Illum"    value="72.13" unit="%" ucd="arith.ratio" />
-      <Param name="Galactic_Long" value="201.62" unit="deg" ucd="pos.galactic.lon" />
-      <Param name="Galactic_Lat"  value="-35.32" unit="deg" ucd="pos.galactic.lat" />
-      <Param name="Ecliptic_Long" value="63.38" unit="deg" ucd="pos.ecliptic.lon" />
-      <Param name="Ecliptic_Lat"  value="-28.26" unit="deg" ucd="pos.ecliptic.lat" />
-    </Group>
-    <Description>The Fermi-GBM location of a transient.</Description>
+    <Param name="LightCurve_URL" value="http://heasarc.gsfc.nasa.gov/FTP/fermi/data/gbm/triggers/2023/bn230716205/quicklook/glg_lc_medres34_bn230716205.gif" ucd="meta.ref.url" />
+    <Param name="Coords_Type"   value="0" unit="dn" />
+    <Param name="Coords_String" value="unavailable/inappropriate" />
+    <Description>A heads-up alert that the Fermi-GBM instrument found a transient.</Description>
   </What>
   <WhereWhen>
     <ObsDataLocation>
@@ -79,36 +63,32 @@
         <AstroCoords coord_system_id="UTC-FK5-GEO">
           <Time unit="s">
             <TimeInstant>
-              <ISOTime>2023-03-01T16:28:43.24</ISOTime>
+              <ISOTime>2023-07-16T04:54:44.12</ISOTime>
             </TimeInstant>
           </Time>
           <Position2D unit="deg">
             <Name1>RA</Name1>
             <Name2>Dec</Name2>
             <Value2>
-              <C1>66.5700</C1>
-              <C2>-6.9600</C2>
+              <C1>0.0000</C1>
+              <C2>0.0000</C2>
             </Value2>
-            <Error2Radius>9.5500</Error2Radius>
+            <Error2Radius>0.0000</Error2Radius>
           </Position2D>
         </AstroCoords>
       </ObservationLocation>
     </ObsDataLocation>
-  <Description>The RA,Dec coordinates are of the type: source_object.</Description>
+  <Description>The RA,Dec coordinates are of the type: unavailable/inappropriate.</Description>
   </WhereWhen>
   <How>
     <Description>Fermi Satellite, GBM Instrument</Description>
     <Reference uri="http://gcn.gsfc.nasa.gov/fermi.html" type="url" />
   </How>
-  <Why importance="0.95">
-    <Inference probability="1.0">
+  <Why importance="0.5">
+    <Inference probability="0.5">
       <Concept>process.variation.burst;em.gamma</Concept>
     </Inference>
   </Why>
-  <Citations>
-    <EventIVORN cite="followup">ivo://nasa.gsfc.gcn/Fermi#GBM_Alert_2023-03-01T16:28:43.24_699380928_1-962</EventIVORN>
-    <Description>This is an updated position to the original trigger.</Description>
-  </Citations>
   <Description>
   </Description>
 </voe:VOEvent>
