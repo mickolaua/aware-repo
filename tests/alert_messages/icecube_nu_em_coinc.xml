@@ -1,0 +1,93 @@
+<?xml version = '1.0' encoding = 'UTF-8'?>
+<voe:VOEvent
+      ivorn="ivo://nasa.gsfc.gcn/AMON#NU_EM_Event2020-05-22T18:21:38.00_000000_000048580-004"
+      role="observation" version="2.0"
+      xmlns:voe="http://www.ivoa.net/xml/VOEvent/v2.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.ivoa.net/xml/VOEvent/v2.0  http://www.ivoa.net/xml/VOEvent/VOEvent-v2.0.xsd" >
+  <Who>
+    <AuthorIVORN>ivo://nasa.gsfc.tan/gcn</AuthorIVORN>
+    <Author>
+      <shortName>AMON (via VO-TAN)</shortName>
+      <contactName>Erik Blaufuss, James DeLaunay, Hugo Ayala</contactName>
+      <contactEmail>blaufuss@umd.edu, jjd330@psu.edu, hgayala@psu.edu</contactEmail>
+    </Author>
+    <Date>2020-05-22T20:24:59</Date>
+    <Description>This VOEvent message was created with TAN VOE version: 1.48 21may20</Description>
+  </Who>
+  <What>
+    <Param name="Packet_Type"  value="172" >
+                                           <Description>GCN's Notice_Type ID number for the AMON_NE_EM_COINC Notice type.</Description> </Param>
+    <Param name="Pkt_Ser_Num"  value="1" >
+                                           <Description>GCN's counting of how many are produced with GCN for each run session.</Description> </Param>
+    <Param name="Stream"       value="1" unit="dn" ucd="meta.id" >
+                                           <Description>The AMON Alert Stream ID number.</Description> </Param>
+    <Param name="Event_ID"     value="48580" unit="dn" ucd="meta.number" >
+                                           <Description>The AMON Event ID number.</Description> </Param>
+    <Param name="Event_Date"   value="200522A" unit="dn" ucd="meta.number" >
+                                           <Description>The AMON Event Date.</Description> </Param>
+    <Param name="Run_ID"       value="0" unit="dn" ucd="meta.number" >
+                                           <Description>The AMON Run ID number.</Description> </Param>
+    <Param name="Rev"          value="0"  ucd="meta.number" unit=" " >
+                                         <Description>Revision of the alert.</Description> </Param>
+    <Param name="Pair_Name_ID" value="1"  ucd="meta.number" unit=" " >
+                                         <Description>Index number (into an aray) of the 2 instruments in the Coincidence.</Description> </Param>
+    <Param name="FAR"          value="3.2255e+04" ucd="stat.probability" unit="yr^-1" >
+                                         <Description>False Alarm Rate, Number per year.</Description> </Param>
+    <Param name="deltaT"       value="17056.25" ucd="time.timeduration" unit="s" >
+                                         <Description>Time window of the search</Description> </Param>
+    <Param name="src_err_90"   value="35.93" unit="arcmin" >
+                                           <Description>Location error, statistical only. 90% containment.</Description> </Param>
+    <Param name="src_err_50"   value="19.80" unit="arcmin" >
+                                           <Description>Location error, statistical only. 50% containment.</Description> </Param>
+    <Param name="private"      value="0" ucd="meta.number" unit="" >
+                                         <Description>Is this notice available only to the AMON team members, not public.</Description> </Param>
+    <Param name="retraction"   value="0" ucd="meta.number" unit="" >
+                                         <Description>If equal 1, then this event is no longer considered astrophysical.</Description> </Param>
+    <Param name="Trigger_ID"   value="0x40" />
+    <Param name="Misc_flags"   value="0xac000000" />
+    <Group name="Trigger_ID" >
+      <Param name="PrivateFlag"    value="false" />
+      <Param name="Role"           value="false" />
+      <Param name="RetractFlag"    value="false" />
+      <Param name="InternalTest"   value="false" />
+    </Group>
+  </What>
+  <WhereWhen>
+    <ObsDataLocation>
+      <ObservatoryLocation id="GEOLUN" />
+      <ObservationLocation>
+        <AstroCoordSystem id="UTC-FK5-GEO" />
+        <AstroCoords coord_system_id="UTC-FK5-GEO">
+          <Time unit="s">
+            <TimeInstant>
+              <ISOTime>2020-05-22T18:21:38.00</ISOTime>
+            </TimeInstant>
+          </Time>
+          <Position2D unit="deg">
+            <Name1>RA</Name1>
+            <Name2>Dec</Name2>
+            <Value2>
+              <C1>23.0100</C1>
+              <C2>-10.1300</C2>
+            </Value2>
+            <Error2Radius>0.3300</Error2Radius>
+          </Position2D>
+        </AstroCoords>
+      </ObservationLocation>
+    </ObsDataLocation>
+  <Description>The RA,Dec coordinates are of the type: source_object.</Description>
+  </WhereWhen>
+  <How>
+    <Description>GCN</Description>
+    <Reference uri="http://gcn.gsfc.nasa.gov/gcn/amon.html" type="url" />
+    <Reference uri="http://gcn.gsfc.nasa.gov/gcn/amon_events.html" type="url" />
+  </How>
+  <Why importance="1.0">
+    <Inference probability="1.0">
+      <Concept>process.variation.burst;em</Concept>
+    </Inference>
+  </Why>
+  <Description>
+  </Description>
+</voe:VOEvent>
