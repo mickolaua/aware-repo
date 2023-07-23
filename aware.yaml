@@ -1,5 +1,5 @@
 config:
-  dev: false # Development switch
+  dev: true # Development switch
   dot_env_path: ".env"
 logger:
   verbosity: "DEBUG" # Verbosity level for logger
@@ -9,18 +9,32 @@ consumer:
   main:
     topics: [
       "gcn.classic.voevent.FERMI_GBM_FIN_POS",
-      # "gcn.classic.voevent.SWIFT_BAT_GRB_POS_TEST",
+      "gcn.classic.voevent.SWIFT_BAT_GRB_POS_TEST",
       "gcn.classic.voevent.SWIFT_XRT_POSITION",
       "gcn.classic.voevent.SWIFT_BAT_GRB_POS_ACK",
-      # 'gcn.classic.voevent.SWIFT_ACTUAL_POINTDIR',
+      'gcn.classic.voevent.SWIFT_ACTUAL_POINTDIR',
       "gcn.classic.voevent.SWIFT_UVOT_POS",
       "gcn.classic.voevent.LVC_PRELIMINARY",
       "gcn.classic.voevent.LVC_INITIAL",
       "gcn.classic.voevent.LVC_RETRACTION",
       "gcn.classic.voevent.LVC_UPDATE",
-      # "gcn.classic.voevent.LVC_EARLY_WARNING",
+      "gcn.classic.voevent.LVC_EARLY_WARNING",
+      "gcn.classic.voevent.INTEGRAL_WEAK",
+      "gcn.classic.voevent.INTEGRAL_WAKEUP",
+      "gcn.classic.voevent.INTEGRAL_SPIACS",
+      "gcn.classic.voevent.INTEGRAL_REFINED",
+      "gcn.classic.voevent.ICECUBE_ASTROTRACK_BRONZE",
+      "gcn.classic.voevent.ICECUBE_ASTROTRACK_GOLD",
+      "gcn.classic.voevent.ICECUBE_CASCADE",
+      "gcn.classic.voevent.HAWC_BURST_MONITOR",
+      "gcn.classic.voevent.FERMI_GBM_ALERT",
+      "gcn.classic.voevent.FERMI_GBM_GND_POS",
+      "gcn.classic.voevent.FERMI_LAT_MONITOR",
+      "gcn.classic.voevent.FERMI_LAT_OFFLINE",
+      "gcn.classic.voevent.MAXI_KNOWN",
+      "gcn.classic.voevent.MAXI_UNKNOWN"
     ] # Topics to subscribe, empty list means all available
-    start_date: "2023-04-01T00:00:00" # Start to listen message from this date
+    start_date: "2022-01-10T00:00:00" # Start to listen message from this date
 planner:
   main:
     sort_method: "nearest" # Method of sorting targets for optimal observation
