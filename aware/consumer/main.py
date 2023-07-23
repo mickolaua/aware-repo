@@ -66,6 +66,7 @@ from ..json import JSON
 from ..logger import log
 from ..planning.planner import SkymapPlanner
 from ..planning.program import create_observation_program
+from ..planning.main import max_area_trigger
 from ..site import Site, Telescopes
 from ..topic import TOPICS, full_topic_name_to_short
 from ..io import create_event_folder
@@ -477,7 +478,11 @@ class ConsumeLoop:
             await que.put(alert_message)
 
         # We can send observational data
-        if send_obs_data and not info.rejected:
+        if (
+            send_obs_data
+            and not info.rejected
+            and (info.localization.area().value < max_area_trigger.value)
+        ):
             sites = list(
                 s
                 for s in site.Telescopes.values()

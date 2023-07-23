@@ -24,6 +24,9 @@ from ..logger import log
 from .. import site
 
 
+max_area_trigger = CfgOption("max_area_trigger", 50.0, float)
+
+
 def nearest_observation_window(
     site: Observer,
     time: Time | datetime | str | float,
