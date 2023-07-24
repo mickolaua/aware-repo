@@ -16,20 +16,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.9", "3.10", "3.11"]
 
     steps:
     - uses: actions/checkout@v3
-    
-#     - uses: actions/cache@v3
-#       id: init-cache
-#       with:
-#         path: ~/.cache/pip
-#         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-#         restore-keys: |
-#           ${{ runner.os }}-pip-
-    
-    
+      
     - name: Install system dependencies
       uses: awalsh128/cache-apt-pkgs-action@latest
       with:

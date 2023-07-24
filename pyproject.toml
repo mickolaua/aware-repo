@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "AWARE"
 version = "0.3.0"
 authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
-requires-python = ">=3.8,<3.12"
+requires-python = ">=3.9,<3.12"
 dependencies = [
     "wheel",
     "numpy>=1.22.0",
