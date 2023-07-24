@@ -1,3 +1,18 @@
+# v0.4.0
+
+In this minor release:
+- Deprecated Python 3.8 support
+- Added more alert parsers (e.g. for INTEGRAL messages)
+- Added option to control triggering the automatic planning depending on skymap area
+
+## v0.4.1
+
+- Fixed incorrect naming of alert origin after cross-matching
+
+## v0.4.2
+
+- Fixed unable to run without -t option if Telegram API not set
+
 # v0.3.0
 
 Since this release, native Windows platform is not supported!

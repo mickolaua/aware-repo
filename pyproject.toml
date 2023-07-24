@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AWARE"
-version = "0.4.1"
+version = "0.4.2"
 authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
 requires-python = ">=3.9,<3.12"
 dependencies = [
