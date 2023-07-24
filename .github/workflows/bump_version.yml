@@ -33,6 +33,7 @@ jobs:
           NONE_STRING_TOKEN: 'NONE:' 
           DEFAULT_BUMP: 'none'
           INITIAL_VERSION: '0.3.0'
+          RELEASE_BRANCHES: 'maintance/**,master,main,release/**'
         continue-on-error: true
 
       - name: Update version in pyproject toml
