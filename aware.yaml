@@ -1,5 +1,5 @@
 config:
-  dev: true # Development switch
+  dev: false # Development switch
   dot_env_path: ".env"
 logger:
   verbosity: "DEBUG" # Verbosity level for logger
@@ -34,7 +34,7 @@ consumer:
       "gcn.classic.voevent.MAXI_KNOWN",
       "gcn.classic.voevent.MAXI_UNKNOWN"
     ] # Topics to subscribe, empty list means all available
-    start_date: "2022-01-10T00:00:00" # Start to listen message from this date
+    start_date: "2022-07-23T00:00:00" # Start to listen message from this date
 planner:
   main:
     sort_method: "nearest" # Method of sorting targets for optimal observation
