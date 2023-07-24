@@ -452,7 +452,7 @@ class ConsumeLoop:
             pack_type = full_topic_name_to_short(info.packet_type)
             body = (
                 f"[{event_head}]\n"
-                + f"From: {origin}\n"
+                + f"From: {info.origin}\n"
                 + f"Trigger ID: {info.event}\n"
                 + f"Trigger Date: {trigger_ } UTC\n"
                 + f"Packet: {pack_type}\n"
