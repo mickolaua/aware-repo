@@ -9,8 +9,14 @@ from __future__ import annotations
 
 from aware.alert.plugins.integral import IntegralWeakParser, IntegralSPIACSParser
 import os.path
+import pytest
+from aware.config import dev
 
 
+@pytest.mark.skipif(
+    not dev.value,
+    reason="To test parsing of mock data events, dev switch should be turned on",
+)
 def test_weak(test_dir: str):
     filename = os.path.join(test_dir, "alert_messages/integral_weak.xml")
     with open(filename, "rb") as f:
