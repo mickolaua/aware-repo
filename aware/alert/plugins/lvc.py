@@ -32,6 +32,7 @@ __all__ = ["LVC_PRELIMINARY_Parser"]
 
 has_ns_prob_thresh = CfgOption("has_ns_prob_thresh", 0.667, float)
 bbh_skymap_max_area = CfgOption("bbh_skymap_max_area", 30, float)
+far_threshold_global = CfgOption("far_threshold_global", 10, float)
 
 
 HZ_to_reciprocal_yr = 31557600
@@ -114,9 +115,14 @@ def parse_lvc_alert(
     except Exception as e:
         log.error("Skymap is not available for LVK %s", event_id, exc_info=e)
 
-    # We do not want to observe BBH event, which do not generate electromagnetic
-    # counterparts. But let's check a small BBH localization for a possible signal.
     if topic != "gcn.classic.voevent.LVC_RETRACTION":
+        # Do not send spurious detections
+        if far * HZ_to_reciprocal_yr > far_threshold_global.value:
+            if not dev.value:
+                return None
+        
+        # We do not want to observe BBH event, which do not generate electromagnetic
+        # counterparts. But let's check a small BBH localization for a possible signal.
         create_loc = create_loc and terr_prob < 0.333 and (
             (has_ns_prob > has_ns_prob_thresh.value and bbh_prob < 0.333)
             or 
@@ -128,13 +134,13 @@ def parse_lvc_alert(
         importance = has_ns_prob
         description = dedent(
             f"""
-            FAR: {far:.3e} Hz (1 per {1/far/HZ_to_reciprocal_yr:.1f} yr^-1)
-            P_BNS: {bns_prob:.1f}
-            P_NSBH: {nsbh_prob:.1f}
-            P_BBH: {bbh_prob:.1f}
-            P_Terr: {terr_prob:.1f}
-            P_hasNS: {has_ns_prob:.1f}
-            P_hasRemnant: {has_remnant_prob:.1f}
+            FAR: {far:.3g} Hz (1 per {1/far/HZ_to_reciprocal_yr:.3g} yr^-1)
+            P_BNS: {bns_prob:.1g}
+            P_NSBH: {nsbh_prob:.3g}
+            P_BBH: {bbh_prob:.3g}
+            P_Terr: {terr_prob:.3g}
+            P_hasNS: {has_ns_prob:.3g}
+            P_hasRemnant: {has_remnant_prob:.3g}
             H/W injection: {hw_inject:d}
             GraceDB URL: {event_page:s}
             Skymap URL: {healpix_url:s}
@@ -144,10 +150,10 @@ def parse_lvc_alert(
         )
 
         if loc:
-            description += f"\n{lvk_uncert_level.value*100:.1f}% area: {loc.area():.1f}"
+            description += f"\n{lvk_uncert_level.value*100:.3g}% area: {loc.area():.3g}"
             if meta:
                 description += (
-                    f"\nDistance: {distmu:.3f} +/- {2*distsigma:.3f} (2sigma)"
+                    f"\nDistance: {distmu:.3g} +/- {2*distsigma:.3g} (2sigma)"
                 )
         else:
             description += "\nSkymap is not available at the moment."

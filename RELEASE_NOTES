@@ -13,6 +13,14 @@ In this minor release:
 
 - Fixed unable to run without -t option if Telegram API not set
 
+## v0.4.3
+
+- Fixed issue, when Swift alerts were marked as retracked mistakenly
+- Fixed float number format in LVC alerts
+- Fixed the tool to bump new version into files
+- Added global FAR threshold for LVC alerts
+
+
 # v0.3.0
 
 Since this release, native Windows platform is not supported!

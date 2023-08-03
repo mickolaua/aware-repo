@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AWARE"
-version = "0.4.2"
+version = "0.4.3"
 authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
 requires-python = ">=3.9,<3.12"
 dependencies = [
@@ -68,7 +68,7 @@ exclude = ["tests"]
 namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
 
 [tool.pytest.ini_options]
-minversion = "6.0"
+minversion = "0.4.3"
 addopts = "-c tests/conftest.py --disable-warnings"
 testpaths = [
     "tests"
