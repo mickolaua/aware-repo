@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from io import BytesIO
 from multiprocessing import Process
+from textwrap import dedent
 from threading import Thread
 from typing import Any
 
@@ -26,6 +27,7 @@ from aiogram_dialog import (
     DialogRegistry,
     StartMode,
     Window,
+
 )
 from aiogram_dialog.widgets.kbd import (
     Back,
@@ -40,6 +42,7 @@ from aiogram_dialog.widgets.kbd import (
     SwitchTo,
     Column,
 )
+from aiogram_dialog.widgets.input import MessageInput, TextInput
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.when import Whenable
 from astroplan import FixedTarget
@@ -446,6 +449,7 @@ class Form(StatesGroup):
     content_types = State()
     topics = State()
     sites = State()
+    importance = State()
     sub = State()
 
 
@@ -524,6 +528,43 @@ sites_kbd = Multiselect(
 )
 
 
+# A bad practice, but anyway
+IMPORTANCE_THRESHOLD = 0.0
+IMPORTANCE_THRESHOLD_INDICATOR = Button(
+    Const(f"{IMPORTANCE_THRESHOLD}"), id="thresh_indicator"
+)
+
+
+async def on_add_thresh_clicked(
+    c: aiogram.types.CallbackQuery, button: Button, manager: DialogManager):
+    global IMPORTANCE_THRESHOLD
+    global IMPORTANCE_THRESHOLD_INDICATOR
+    IMPORTANCE_THRESHOLD += 0.1
+    if IMPORTANCE_THRESHOLD > 1.0:
+        IMPORTANCE_THRESHOLD = 1.0
+    IMPORTANCE_THRESHOLD_INDICATOR.text = Const(f"P>{IMPORTANCE_THRESHOLD:.2f}")
+    await IMPORTANCE_THRESHOLD_INDICATOR.render_keyboard(manager.data, manager)
+
+
+async def on_sub_thresh_clicked(
+    c: aiogram.types.CallbackQuery, button: Button, manager: DialogManager):
+    global IMPORTANCE_THRESHOLD
+    global IMPORTANCE_THRESHOLD_INDICATOR
+    IMPORTANCE_THRESHOLD -= 0.1
+    if IMPORTANCE_THRESHOLD < 0.0:
+        IMPORTANCE_THRESHOLD = 0.0
+    IMPORTANCE_THRESHOLD_INDICATOR.text = Const(f"P>{IMPORTANCE_THRESHOLD:.2f}")
+    await IMPORTANCE_THRESHOLD_INDICATOR.render_keyboard(manager.data, manager)
+
+
+# I cannot figure out, how to properly tell aiogram_dialog to listen for user replies
+# So, here we force a user to use + and - buttons to change the threhold value
+importance_kbd = Column(
+    Button(Const("+0.1"), id="add_tenth_thresh", on_click=on_add_thresh_clicked), 
+    Button(Const("-0.1"), id="sub_tenth_thresh", on_click=on_sub_thresh_clicked)
+)
+
+
 async def on_subscription(
     c: aiogram.types.CallbackQuery,
     widget: Any,
@@ -552,6 +593,13 @@ async def on_subscription(
         await c.message.reply("You are NOT subscribed.\n")
 
 
+async def from_alert_to_scopes_next(
+    c: aiogram.types.CallbackQuery, button: Button, manager: DialogManager):
+    # if 
+    await manager.dialog().next()
+
+
+
 dialog = Dialog(
     Window(
         Format("Choose what to receive"),
@@ -578,10 +626,31 @@ dialog = Dialog(
         getter=get_sites,
     ),
     Window(
-        Format("Press `Subscribe` to finish subscribtion process"),
+        Format(
+            dedent(
+                """Type the importance threshold for alert messages 
+                (a real number between 0 and 1)."""
+                )
+            ),
+        IMPORTANCE_THRESHOLD_INDICATOR,
+        importance_kbd,
+        Row(Back(), Next()),
+        Cancel(),
+        state=Form.importance,
+    ),
+    Window(
+        Format(
+            dedent(
+                """
+                By pressing the `Subscribe` you agree to receive messages
+                from the bot, including alerts on new events, and messages with any 
+                observation data, such as plot images and lists of sky fields or 
+                objects to observe."""
+            )
+        ),
         Row(Back(), Button(Const("Subscribe"), id="b_sub", on_click=on_subscription)),
         Cancel(),
-        state=Form.sub,
+        state=Form.sub
     ),
 )
 
