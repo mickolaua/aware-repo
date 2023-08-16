@@ -593,12 +593,14 @@ class ConsumeLoop:
                             outdir,
                             f"{event_name}.list",
                         )
-                        fname_safe = sanitize_filepath(fname, replacement_text="_")
+                        fname_safe = sanitize_filepath(
+                            fname, replacement_text="_", platform="linux"
+                        )
                         await save_file(fname_safe, obs_program)
 
                         plot_fname = os.path.join(outdir, f"{event_name}.png")
-                        plot_fname_safe = sanitize_filepath(
-                            plot_fname, replacement_text="_"
+                        plot_fname = sanitize_filepath(
+                            plot_fname, replacement_text="_", platform="linux"
                         )
                         fig = ax.get_figure()
                         fig.savefig(plot_fname)
