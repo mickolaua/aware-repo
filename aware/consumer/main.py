@@ -363,10 +363,19 @@ class ConsumeLoop:
         log.debug("\nParsing the alert ...")
         info = await parse_alert(message.value(), message.topic())
         if info is None:
-            log.debug(
+            log.info(
                 "Alert was ignored. Possibly, it is only available in develop mode."
             )
             return
+        else:
+            # Display sender information in log with trigger date
+            log.info(
+                "Alert from %s (%s) triggered at %s",
+                info.origin,
+                info.event,
+                info.trigger_date,
+            )
+
         log.debug(info)
 
         # Do not send plots and observational messages if the event matches previous
@@ -481,6 +490,7 @@ class ConsumeLoop:
         if (
             send_obs_data
             and not info.rejected
+            and info.localization is not None 
             and (info.localization.area().value < max_area_trigger.value)
         ):
             sites = list(
@@ -513,7 +523,8 @@ class ConsumeLoop:
                     s.name for s in sites if not s.fov.is_widefield
                 )
                 planner.plan_observations(
-                    wide_field_telescopes, narrow_field_telescopes
+                    wide_field_telescopes, narrow_field_telescopes, 
+                    disable_intersections=False
                 )
                 planner.save_plan_fits(wide_field_telescopes, narrow_field_telescopes)
                 saved_blocks = planner.save_blocks()
@@ -533,7 +544,7 @@ class ConsumeLoop:
                             f"plan_map_{origin}_{event}_{name}_day{planner.day}.png"
                         )
                         plot_name_safe = sanitize_filename(
-                            plot_name, replacement_text="_"
+                            plot_name, replacement_text="_", platform="linux",
                         )
                         plot_path = os.path.join(outdir, plot_name_safe)
                         fig = ax.get_figure()
@@ -604,6 +615,7 @@ class ConsumeLoop:
                         )
                         fig = ax.get_figure()
                         fig.savefig(plot_fname)
+
                     else:
                         # Do not send empty observational program
                         fname = ""
