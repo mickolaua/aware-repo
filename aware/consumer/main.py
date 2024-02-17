@@ -10,6 +10,7 @@
 # Copyright:   (c) 2004-2022 AWARE Developers
 # ----------------------------------------------------------------------------
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -480,7 +481,7 @@ class ConsumeLoop:
                         else ""
                     )
                     if not info.rejected
-                    else "EVENT IS RETRACKED!"
+                    else "EVENT CANCELED!"
                 )
             )
             alert_message = TelegramAlertMessage(uuid, senter, body, info.packet_type)
@@ -500,8 +501,6 @@ class ConsumeLoop:
             )
             now = Time(datetime.now().isoformat(), format="isot")
             loc = info.localization
-            local_files = []
-            dist_files = []
 
             # TODO:
             # For those scopes that has large enough FOV to cover the entire sky map
@@ -614,32 +613,24 @@ class ConsumeLoop:
                             plot_fname, replacement_text="_", platform="linux"
                         )
                         fig = ax.get_figure()
-                        fig.savefig(plot_fname)
-
+                        fig.savefig(plot_fname_safe)
                     else:
                         # Do not send empty observational program
                         fname = ""
                         plot_fname = ""
+                        comment = ""
 
                     async with self._lock:
                         data_package = TelegramDataPackage(
-                            uuid, info, info.packet_type, s, fname, plot_fname
+                            uuid,
+                            info,
+                            info.packet_type,
+                            s,
+                            fname,
+                            plot_fname,
+                            comment=comment,
                         )
                         await que.put(data_package)
-
-        #     if obs_program:
-        #         upload_files(fname, f"/uploads/{info.event}/{s.name}/targets_{uuid}_{s.name}.{s.default_target_list_fmt}")
-        #         upload_files(plot_fname, f"/uploads/{info.event}/{s.name}/targets_{uuid}_{s.name}.png")
-
-        # async with self._lock:
-        #     url = TelegramSFTPUrl(uuid, info.event, "", f"/uploads/{uuid}")
-        #     await que.put(url)
-
-        # async with self._lock:
-        #     data_package = TelegramDataPackage(
-        #         uuid, info, s.full_name, fname, plot_fname
-        #     )
-        #     await que.put(data_package)
 
         self._commited_messages += 1
         if self._commited_messages % self._max_commit_messages:

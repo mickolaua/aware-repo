@@ -20,6 +20,23 @@ In this minor release:
 - Fixed the tool to bump new version into files
 - Added global FAR threshold for LVC alerts
 
+## v0.4.4
+
+- Fixed issue, when LVC alerts were not received, because they have empty fields
+- Fixed large memory consumption in alert crossmatching, limit 300 rows per query
+- Fixed plot file saving (now use sanitized filename for the OS)
+- Fixed subscription problem due to overflow in chat_id column in the Database
+- Fixed incorrect name of OPD 1.6 meter telescope
+- Added 0.5-meter telescope of Kuban' State University
+- Importance estimation for LVC alerts (0.99 at FAR=3 events per year)
+- Account for local Sun rise and set times, when estimating target visibility
+- Visibility now is computed on the grid digitilized according to a telescope exposure and slew rate
+- Updated default settings for all telescopes (exposure time to 30 sec and Sun set altitude to -12 degrees)
+- Comment for observers in Telegram messages
+- Completely removed chat_id logging from the bot
+- Temporarily removed run, stop, and resume commands from the bot
+- List of available telescopes appears sorted now in Telegram
+- 300 dpi in sky find chart, and better colors
 
 # v0.3.0
 

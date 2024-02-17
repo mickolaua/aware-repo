@@ -33,10 +33,10 @@ def plot_find_chart(center: SkyCoord, radius: Angle, name: str) -> Axes:
     vmin = data.mean() - data.std()  # type: ignore
     vmax = data.mean() + data.std()  # type: ignore
     wcs = WCS(hdr)
-    ax = plt.subplot(projection=wcs)
+    ax = plt.subplot(dpi=300, projection=wcs)
     interval = PercentileInterval(90)
     stretch = SqrtStretch()
-    imshow_norm(data, ax, interval=interval, stretch=stretch)  # type: ignore
+    imshow_norm(data, ax, interval=interval, stretch=stretch, cmap="bone")  # type: ignore
     ax.plot(
         center.ra.deg,  # type: ignore
         center.dec.deg,  # type: ignore
@@ -60,7 +60,7 @@ def plot_find_chart(center: SkyCoord, radius: Angle, name: str) -> Axes:
         font_properties={"size": 12, "weight": "bold"},
         scale_formatter=lambda value, dimension: f"{value} arcsec",
     )
-    scale_bar.set_color("red")
+    scale_bar.set_color("black")
     ax.add_artist(scale_bar)
     ax.grid(True)
     ax.set_xlabel("RA")

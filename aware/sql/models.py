@@ -2,12 +2,22 @@ from __future__ import annotations
 from typing import Any
 import warnings
 
-from sqlalchemy import BLOB, REAL, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    BLOB,
+    REAL,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    BigInteger,
+)
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import (
     DeclarativeMeta,
-    Session,  # mapped_column,``
+    Session,
     relationship,
     scoped_session,
     sessionmaker,
@@ -16,7 +26,7 @@ import sqlcipher3
 
 from ..config import CfgOption
 
-__all__ = ["Base", "Alert", "RejectedAlert", "create_session"]
+__all__ = ["Base", "Alert", "Subscriber", "create_session"]
 
 
 alert_db = CfgOption("alert_db", "alert.db", str)
@@ -34,7 +44,7 @@ Base: DeclarativeMeta = declarative_base()
 class Alert(Base):
     __tablename__ = "alert"
 
-    id = Column(Integer, autoincrement=True, primary_key=True)
+    id = Column(BigInteger, autoincrement=True, primary_key=True)
     alert_message = Column(Text)
     ra_center = Column(REAL)
     dec_center = Column(REAL)
@@ -67,7 +77,7 @@ class MatchedAlert(Base):
 
 class Subscriber(Base):
     __tablename__ = "settings"
-    chat_id = Column(Integer, unique=True, primary_key=True)
+    chat_id = Column(BigInteger, unique=True, primary_key=True)
     content_type = Column(String(256))
     alert_type = Column(Text)
     telescopes = Column(Text)
@@ -87,10 +97,10 @@ def _create_url(
     if driver == "sqlite":
         if query:
             query = {}
-        
+
         if user:
             user = None
-        
+
         if port:
             port = None
 
@@ -147,5 +157,5 @@ def dbconnect(func, **session_kws):
                 s.commit()
             except:
                 s.rollback()
-        
+
     return inner

@@ -30,16 +30,6 @@ async def crossmatch_alerts(
     origin = info.origin
     moc = info.localization.moc()
     center = moc.barycenter()
-    # center = info.localization.center()
-    # radius = info.localization.error_radius()
-    # log.debug(
-    #     "\nEvent: %s\nOrigin: %s\nCoordinates: %s %s\nError radius: %s\nTrigger date: %s\n",
-    #     event,
-    #     origin,
-    #     *coord2str(center),
-    #     radius,
-    #     info.trigger_date,
-    # )
     log.debug(
         "\nEvent: %s\nOrigin: %s\nTrigger date: %s\nBarycenter %s",
         event,
@@ -53,7 +43,9 @@ async def crossmatch_alerts(
 
     matched_alerts: list[Alert] = []
     with session:
-        for alert in session.query(Alert).all():
+        # Be cautious with yield_per since it may does not allow some querying 
+        # functionality to work
+        for alert in session.query(Alert).order_by(Alert.trigger_date).yield_per(100):
             try:
                 alert_loc: Localization = pickle.loads(alert.localization)
                 if alert_loc is None:

@@ -5,6 +5,7 @@ Desc: Observer sites
 Created:  2023-03-03
 Modified: 2023-03-13
 """
+
 from __future__ import annotations
 
 import warnings
@@ -86,14 +87,16 @@ class Site(Observer):
         timezone: str,
         fov: FOV,
         default_magnitude: u.Unit,
-        default_exposure: u.Unit = 1 * u.s,
-        default_exposure_number: int = 1,
+        default_exposure: u.Unit = 30 * u.s,
+        default_exposure_number: int = 3,
         default_filter: str = "",
         default_target_list_fmt: str = "txt",
         default_slew_rate: u.Unit = 3 * u.min,
-        horizon: u.Unit = 0.0 * u.degree,
+        horizon: u.Unit = -12.0 * u.degree,  # Nautical twilight
         full_name: Optional[str] = None,
         observer_telegram_id: str = "",
+        observer_email: str = "",
+        observer_scoket: str = "",
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -149,38 +152,28 @@ class Site(Observer):
         elif start_time is not None and end_time is None:
             time_grid = [start_time]
         else:
-            time_grid = Time(np.linspace(start_time.jd, end_time.jd, 150), format="jd")
+            night_duration = end_time.jd - start_time.jd
+            total_exposure = np.floor(
+                self.exposure.to_value("day") * self.default_exposure_number
+            )
+            single_slew_time = total_exposure + self.default_slew_rate.to_value("day")
+            Npoints = np.ceil(night_duration / single_slew_time)
+            time_grid = Time(
+                np.linspace(start_time.jd, end_time.jd, Npoints), format="jd"
+            )
         above_horizon, altaz = self.target_is_up(
             time_grid,
             targets,
             return_altaz=True,
             grid_times_targets=True,
-            horizon=-18 * u.deg,
+            horizon=self.horizon,
         )
         airmass = altaz.altaz.secz
-        # observable = np.argwhere(
-        #     np.any((airmass < max_airmass) & (airmass > 0), axis=1)
-        #     & np.any(above_horizon, axis=1)
-        # ).ravel()
-        # print(airmass)
-        # print(np.any(airmass > 0, axis=0))
-        # print(np.where(airmass < max_airmass))
-        # print(np.where(airmass > 0))
-        # print(above_horizon)
-        # observable = (
-        #     np.any(airmass > 0, axis=1).ravel()
-        #     & np.any(airmass < max_airmass, axis=1).ravel()
-        # )
-        # idx = np.arange(len(airmass))
-        # obs_idx = idx[observable]
-        # print(observable)
         observable_targets = []
         for i, (a, above) in enumerate(zip(airmass, above_horizon)):
             good = np.where((a < max_airmass) & (a > 0))[0]
             if len(good) > 1:
                 observable_targets.append(targets[i])
-
-        # observable_targets = [targets[i] for i in obs_idx]
 
         return observable_targets
 
@@ -210,7 +203,7 @@ class Site(Observer):
             log.debug(
                 "Sorting algorithm `%s` is unknown, returning original list", method
             )
-            # Just return original list of targets
+            # Just return a copy of original list of targets
             sorted_targets = list(targets)
 
         return sorted_targets
@@ -348,7 +341,6 @@ CrAO_ZTSH = Site(
     latitude=44.726667 * u.deg,
     longitude=34.015861 * u.deg,
     elevation=600 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(9.5 * u.arcmin, 9.5 * u.arcmin),
     aperture=2.65 * u.m,
     default_exposure=30 * u.s,
@@ -364,7 +356,6 @@ CrAO_Sintez = Site(
     latitude=44.726667 * u.deg,
     longitude=34.015861 * u.deg,
     elevation=600 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(84 * u.arcmin, 56 * u.arcmin),
     aperture=2.65 * u.m,
     default_exposure=30 * u.s,
@@ -380,7 +371,6 @@ Assy_AZT20 = Site(
     latitude=43.2252778 * u.deg,
     longitude=77.8716667 * u.deg,
     elevation=2750 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(13 * u.arcmin, 13 * u.arcmin),
     aperture=1.5 * u.m,
     default_exposure=30 * u.s,
@@ -395,7 +385,6 @@ TSHAO_Zeiss1000 = Site(
     latitude=43.06 * u.deg,
     longitude=76.97 * u.deg,
     elevation=2735 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(13 * u.arcmin, 13 * u.arcmin),
     aperture=1.0 * u.m,
     default_exposure=60 * u.s,
@@ -410,7 +399,6 @@ Altai_Santel400 = Site(
     latitude=53.43517913184 * u.deg,
     longitude=83.95733665302 * u.deg,
     elevation=600 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(324 * u.arcmin, 276 * u.arcmin),
     aperture=0.4 * u.m,
     default_exposure=120 * u.s,
@@ -425,7 +413,6 @@ Abastumani_AS32 = Site(
     latitude=41.7542 * u.deg,
     longitude=42.8194 * u.deg,
     elevation=1650 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(44 * u.arcmin, 44 * u.arcmin),
     aperture=0.7 * u.m,
     default_exposure=120 * u.s,
@@ -441,7 +428,6 @@ SAO_RAS_Zeiss1000 = Site(
     latitude=43.646825 * u.deg,
     longitude=41.440447 * u.deg,
     elevation=2100 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(7.37 * u.arcmin, 7.37 * u.arcmin),
     aperture=1.0 * u.m,
     default_exposure=60 * u.s,
@@ -457,7 +443,6 @@ SAO_RAS_BTA = Site(
     latitude=43.646825 * u.deg,
     longitude=41.440447 * u.deg,
     elevation=2100 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(6.1 * u.arcmin, 6.1 * u.arcmin),
     aperture=6.0 * u.m,
     default_exposure=60 * u.s,
@@ -503,7 +488,6 @@ MAO_AZT22 = Site(
     latitude=+38.6733 * u.deg,
     longitude=+66.8964 * u.deg,
     elevation=2593 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(18 * u.arcmin, 18 * u.arcmin),
     aperture=1.5 * u.m,
     default_exposure=60 * u.s,
@@ -519,7 +503,6 @@ Kitab_RC36 = Site(
     latitude=+38.6733 * u.deg,
     longitude=+66.8964 * u.deg,
     elevation=2593 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(43.6 * u.arcmin, 43.6 * u.arcmin),
     aperture=0.36 * u.m,
     default_exposure=60 * u.s,
@@ -534,7 +517,6 @@ KGO_SAI25 = Site(
     latitude=+38.6733 * u.deg,
     longitude=+66.8964 * u.deg,
     elevation=2100 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(4.6 * u.arcmin, 4.6 * u.arcmin),
     aperture=2.5 * u.m,
     default_exposure=60 * u.s,
@@ -550,7 +532,6 @@ Terskol_K800 = Site(
     latitude=Latitude("43:16:28.4 d"),
     longitude=Longitude("+42:30:00 d"),
     elevation=3150 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(55.4 * u.arcmin, 55.4 * u.arcmin),
     aperture=0.8 * u.m,
     default_exposure=60 * u.s,
@@ -565,7 +546,6 @@ Terskol_Zeiss2000 = Site(
     latitude=Latitude("43:16:28.4 d"),
     longitude=Longitude("+42:30:00 d"),
     elevation=3150 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(10.8 * u.arcmin, 10.8 * u.arcmin),
     aperture=2.0 * u.m,
     default_exposure=60 * u.s,
@@ -581,7 +561,6 @@ Castelgrande_ORI22 = Site(
     latitude=Latitude("40:49:04 d"),
     longitude=Longitude("+15:27:48 d"),
     elevation=1250 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(204 * u.arcmin, 240 * u.arcmin),
     aperture=0.22 * u.m,
     default_exposure=60 * u.s,
@@ -596,7 +575,6 @@ OPD_Zeiss_1000 = Site(
     latitude=Latitude("-22:32:04 d"),
     longitude=Longitude("-45:34:57 d"),
     elevation=1864 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(7.94 * u.arcmin, 11.88 * u.arcmin),
     aperture=1.0 * u.m,
     default_exposure=60 * u.s,
@@ -612,7 +590,6 @@ OPD_IAG = Site(
     latitude=Latitude("-22:32:04 d"),
     longitude=Longitude("-45:34:57 d"),
     elevation=1864 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(7.35 * u.arcmin, 11.00 * u.arcmin),
     aperture=0.6 * u.m,
     default_exposure=60 * u.s,
@@ -624,11 +601,10 @@ OPD_IAG = Site(
 OPD_1_6m = Site(
     timezone="Etc/GMT-3",
     name="opd_1_6m",
-    full_name="OPD Zeiss-1000",
+    full_name="OPD 1.6-meter",
     latitude=Latitude("-22:32:04 d"),
     longitude=Longitude("-45:34:57 d"),
     elevation=1864 * u.m,
-    horizon=0.0 * u.degree,
     fov=FOV(3.75 * u.arcmin, 5.57 * u.arcmin),
     aperture=1.6 * u.m,
     default_exposure=60 * u.s,
@@ -637,6 +613,20 @@ OPD_1_6m = Site(
     default_target_list_fmt="txt",
     default_filter="R",
 )
-
+kubsu_05m = Site(
+    timezone="Europe/Moscow",
+    name="kubsu_0.5m",
+    full_name="KubSU 0.5 meter",
+    latitude=Latitude("+39:01:00 d"),
+    longitude=Longitude("45:01:00 d"),
+    elevation=71 * u.m,
+    fov=FOV(15 * u.arcmin, 21 * u.arcmin),
+    aperture=0.510 * u.m,
+    default_exposure=60 * u.s,
+    default_magnitude=17.0 * u.ABmag,
+    default_exposure_number=3,
+    default_target_list_fmt="txt",
+    default_filter="R",
+)
 
 default_sites = CfgOption("default_sites", list(Telescopes.keys()), list)
