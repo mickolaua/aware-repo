@@ -43,6 +43,16 @@ In this minor release:
 - Fixed issue with id columns of alert and settings tables in the database
 - Settings table now has separate id column as a primary key
 - Chat id column in the settings table now has VARCHAR(256) type (autoconvertable to int in Python) to prevent overflows caused by integer values in SQL
+- Fixed incorrectly provided DPI option in the sky find chart
+- Fixed incorrect unit of a scale bar in the sky find chart
+- Display smoothed DSS2 image in the sky find chart
+- Fixed ICECUBE and MAXI information message clobbering
+- Added test for the find chart plot
+- Added test for the settings table
+
+## v0.4.6
+
+- Fixed problem with conical MOC creation with mocpy>0.12
 
 
 # v0.3.0

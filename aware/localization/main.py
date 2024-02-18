@@ -139,13 +139,22 @@ class CircularSkyMap(Localization):
         delta_depth: int = healpix_resolution_step.get_value(),
     ) -> MOC:
         """Generate Multi-Order Coverage map from center and radius."""
-        return MOC.from_cone(
-            self.center().ra,
-            self.center().dec,
-            self.error_radius(),
-            max_depth,
-            delta_depth=delta_depth,
-        )
+        try:
+            return MOC.from_cone(
+                self.center().ra,
+                self.center().dec,
+                self.error_radius(),
+                max_depth=max_depth,
+                delta_depth=delta_depth,
+            )
+        except TypeError:
+            # In mocpy<0.13, there are 5 parameters, but in latter there are only 4
+            return MOC.from_cone(
+                self.center().ra,
+                self.center().dec,
+                self.error_radius(),
+                max_depth=max_depth,
+            )
 
     def area(self) -> u.Unit:
         return np.pi * self.error_radius() ** 2
