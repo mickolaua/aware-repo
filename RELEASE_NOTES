@@ -1,3 +1,60 @@
+# v0.4.0
+
+In this minor release:
+- Deprecated Python 3.8 support
+- Added more alert parsers (e.g. for INTEGRAL messages)
+- Added option to control triggering the automatic planning depending on skymap area
+
+## v0.4.1
+
+- Fixed incorrect naming of alert origin after cross-matching
+
+## v0.4.2
+
+- Fixed unable to run without -t option if Telegram API not set
+
+## v0.4.3
+
+- Fixed issue, when Swift alerts were marked as retracked mistakenly
+- Fixed float number format in LVC alerts
+- Fixed the tool to bump new version into files
+- Added global FAR threshold for LVC alerts
+
+## v0.4.4
+
+- Fixed issue, when LVC alerts were not received, because they have empty fields
+- Fixed large memory consumption in alert crossmatching, limit 300 rows per query
+- Fixed plot file saving (now use sanitized filename for the OS)
+- Fixed subscription problem due to overflow in chat_id column in the Database
+- Fixed incorrect name of OPD 1.6 meter telescope
+- Added 0.5-meter telescope of Kuban' State University
+- Importance estimation for LVC alerts (0.99 at FAR=3 events per year)
+- Account for local Sun rise and set times, when estimating target visibility
+- Visibility now is computed on the grid digitilized according to a telescope exposure and slew rate
+- Updated default settings for all telescopes (exposure time to 30 sec and Sun set altitude to -12 degrees)
+- Comment for observers in Telegram messages
+- Completely removed chat_id logging from the bot
+- Temporarily removed run, stop, and resume commands from the bot
+- List of available telescopes appears sorted now in Telegram
+- 300 dpi in sky find chart, and better colors
+
+## v0.4.5
+
+- Fixed issue with id columns of alert and settings tables in the database
+- Settings table now has separate id column as a primary key
+- Chat id column in the settings table now has VARCHAR(256) type (autoconvertable to int in Python) to prevent overflows caused by integer values in SQL
+- Fixed incorrectly provided DPI option in the sky find chart
+- Fixed incorrect unit of a scale bar in the sky find chart
+- Display smoothed DSS2 image in the sky find chart
+- Fixed ICECUBE and MAXI information message clobbering
+- Added test for the find chart plot
+- Added test for the settings table
+
+## v0.4.6
+
+- Fixed problem with conical MOC creation with mocpy>0.12
+
+
 # v0.3.0
 
 Since this release, native Windows platform is not supported!

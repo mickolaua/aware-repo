@@ -75,7 +75,7 @@ def parse_maxi_alert(
         descr += sky_map.describe()
 
     if name := meta["Source_Name"]:
-        descr += f"Name: {name}\n"
+        descr += f"\nName: {name}\n"
 
     if flux := meta["Source_Flux"]:
         flux_erg = flux * 2.4e-11

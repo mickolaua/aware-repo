@@ -97,10 +97,12 @@ async def show_available_sites(message: aiogram.types.Message):
 
     try:
         msg = "\n".join(
-            [
-                site.Telescopes[site_id].full_name
-                for site_id in site.default_sites.get_value()
-            ]
+            sorted(
+                [
+                    site.Telescopes[site_id].full_name
+                    for site_id in site.default_sites.get_value()
+                ]
+            )
         )
     except Exception as e:
         msg = ""
@@ -143,82 +145,82 @@ async def status(message: aiogram.types.Message):
 #     await processing_loop(message, queue, lock)
 
 
-@dp.message_handler(commands="stop")
-async def stop(message: aiogram.types.Message):
-    log.debug(
-        "requested to stop processing in chat ID=%d on %s",
-        message.chat.id,
-        datetime.now(),
-    )
+# @dp.message_handler(commands="stop")
+# async def stop(message: aiogram.types.Message):
+#     log.debug(
+#         "requested to stop processing in chat ID=%d on %s",
+#         message.chat.id,
+#         datetime.now(),
+#     )
 
-    is_admin_or_creator = False
-    try:
-        admins = await message.chat.get_administrators()
-        for admin in admins:
-            if admin.status == aiogram.types.ChatMemberStatus.ADMINISTRATOR:
-                is_admin_or_creator = True
+#     is_admin_or_creator = False
+#     try:
+#         admins = await message.chat.get_administrators()
+#         for admin in admins:
+#             if admin.status == aiogram.types.ChatMemberStatus.ADMINISTRATOR:
+#                 is_admin_or_creator = True
 
-            if admin.status == aiogram.types.ChatMemberStatus.OWNER:
-                is_admin_or_creator = True
-    except aiogram.exceptions.BadRequest:
-        # In private chat no admins
-        is_admin_or_creator = True
+#             if admin.status == aiogram.types.ChatMemberStatus.OWNER:
+#                 is_admin_or_creator = True
+#     except aiogram.exceptions.BadRequest:
+#         # In private chat no admins
+#         is_admin_or_creator = True
 
-    async def _shutdown():
-        global lock
-        global running
+#     async def _shutdown():
+#         global lock
+#         global running
 
-        async with lock:
-            if not running:
-                return await message.reply("I am already idle")
-            running = False
+#         async with lock:
+#             if not running:
+#                 return await message.reply("I am already idle")
+#             running = False
 
-        await message.reply("I has stopped")
+#         await message.reply("I has stopped")
 
-    if is_admin_or_creator:
-        asyncio.create_task(_shutdown())
-        await asyncio.sleep(0)
-    else:
-        await message.reply("You are not admin or owner of this chat!")
+#     if is_admin_or_creator:
+#         asyncio.create_task(_shutdown())
+#         await asyncio.sleep(0)
+#     else:
+#         await message.reply("You are not admin or owner of this chat!")
 
 
-@dp.message_handler(commands="resume")
-async def resume(message: aiogram.types.Message):
-    log.debug(
-        "requested to resume processing in chat ID=%d on %s",
-        message.chat.id,
-        datetime.now(),
-    )
+# @dp.message_handler(commands="resume")
+# async def resume(message: aiogram.types.Message):
+#     log.debug(
+#         "requested to resume processing in chat ID=%d on %s",
+#         message.chat.id,
+#         datetime.now(),
+#     )
 
-    is_admin_or_creator = False
-    try:
-        admins = await message.chat.get_administrators()
-        for admin in admins:
-            if admin.status == aiogram.types.ChatMemberStatus.ADMINISTRATOR:
-                is_admin_or_creator = True
+#     is_admin_or_creator = False
+#     try:
+#         admins = await message.chat.get_administrators()
+#         for admin in admins:
+#             if admin.status == aiogram.types.ChatMemberStatus.ADMINISTRATOR:
+#                 is_admin_or_creator = True
 
-            if admin.status == aiogram.types.ChatMemberStatus.OWNER:
-                is_admin_or_creator = True
-    except aiogram.exceptions.BadRequest:
-        # In private chat no admins
-        is_admin_or_creator = True
+#             if admin.status == aiogram.types.ChatMemberStatus.OWNER:
+#                 is_admin_or_creator = True
+#     except aiogram.exceptions.BadRequest:
+#         # In private chat no admins
+#         is_admin_or_creator = True
 
-    async def _resume():
-        global lock
-        global running
+#     async def _resume():
+#         global lock
+#         global running
 
-        async with lock:
-            if running:
-                return await message.reply("I am already running")
-            running = True
+#         async with lock:
+#             if running:
+#                 return await message.reply("I am already running")
+#             running = True
 
-        await message.reply("I am resuming running")
+#         await message.reply("I am resuming running")
 
-    if is_admin_or_creator:
-        asyncio.create_task(_resume())
-        await asyncio.sleep(0)
-    else:
-        await message.reply("You are not admin or owner of this chat!")
+#     if is_admin_or_creator:
+#         asyncio.create_task(_resume())
+#         await asyncio.sleep(0)
+#     else:
+#         await message.reply("You are not admin or owner of this chat!")
 
 
 @dp.message_handler(regexp="[\d\w]+[\t ]\d+(\.\d+)?[\t ]\d+(\.\d+)?")
@@ -286,9 +288,7 @@ async def get_ids(message: aiogram.types.Message):
 @dp.message_handler(commands="help")
 async def help(message: aiogram.types.Message):
     log.debug(
-        "user asked for help in chat ID=%d on %s",
-        message.chat.id,
-        datetime.now(),
+        "user asked for help",
     )
     await message.reply(
         """
@@ -307,9 +307,7 @@ Text commands:
 @dp.message_handler(commands="topics")
 async def topics(message: aiogram.types.Message):
     log.debug(
-        "requested list of topics in chat ID=%d on %s",
-        message.chat.id,
-        datetime.now(),
+        "requested list of topics",
     )
     response_message = "Available topics:\n" + "\n".join(
         t.lstrip("gcn.classic.voevent.") for t in consumer.topics.get_value()
@@ -663,14 +661,15 @@ async def processing_loop(
                         except Exception as e:
                             log.error("can not send photo", exc_info=e)
 
-                    if data.json_filename:
+                    if data.plan_filename:
                         msg = (
                             f"[Observational plan]\n"
                             f"Site: {data.site.full_name}\n"
                             f"Origin: {info.origin}\n"
                             f"Event: {info.event}\n"
                             f"Filename: "
-                            f"{os.path.basename(data.json_filename)}"
+                            f"{os.path.basename(data.plan_filename)}\n"
+                            f"{data.comment}\n"
                         )
                         await asyncio.sleep(2)
                         try:
@@ -685,11 +684,11 @@ async def processing_loop(
                             await asyncio.sleep(2)
                             await bot.send_document(
                                 sub.chat_id,
-                                aiogram.types.InputFile(data.json_filename),
+                                aiogram.types.InputFile(data.plan_filename),
                             )
                         except Exception as e:
                             log.error(
-                                "can not send JSON file of targets",
+                                "can not send file with targets",
                                 exc_info=e,
                             )
 

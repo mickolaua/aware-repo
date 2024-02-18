@@ -56,8 +56,9 @@ class TelegramDataPackage:
     target_info: TargetInfo
     alert_type: str
     site: Site
-    json_filename: str
+    plan_filename: str
     plot_fname: str
+    comment: str = ""
     created: datetime = datetime.now()
 
 

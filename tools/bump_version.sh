@@ -26,5 +26,5 @@ fi
 export PYVERSION="\"${MAJOR}\", \"${MINOR}\", \"${MICRO}\""
 export PYPROJECTTOMLVERSION="${MAJOR}.${MINOR}.${MICRO}"
 
-perl -pi -e 's/__version__ = \([^"]*\)/__version__ = \($ENV{PYVERSION}\)/' aware/__version__.py
-perl -pi -e 's/version = "[^"]*"/version = "$ENV{PYPROJECTTOMLVERSION}"/' pyproject.toml
+sed -e "s/__version__ = (\"[0-9]\+\", \"[0-9]\+\", \"[0-9]\+\")/__version__ = \($PYVERSION\)/" -i aware/__version__.py
+sed -e "s/version = \"[^\"]*\"/version = \"$PYPROJECTTOMLVERSION\"/" -i pyproject.toml

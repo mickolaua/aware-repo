@@ -76,7 +76,16 @@ def parse_swift_alert(msg: str, topic: str, instr: str):
 
     # We are only interested in real GRBs
     def_not_grb = voevent.get_parameter_value("Def_NOT_a_GRB", bool)
-    rejected = def_not_grb or meta["StarTrack_Lost_Lock"] or not meta["GRB_Identified"]
+    meta["Def_NOT_a_GRB"] = def_not_grb
+    rejected = False
+    if def_not_grb is not None:
+        rejected |= def_not_grb
+
+    if meta["StarTrack_Lost_Lock"] is not None:
+        rejected |= meta["StarTrack_Lost_Lock"]
+
+    if meta["GRB_Identified"] is not None:
+        rejected |= not meta["GRB_Identified"]
 
     # Astronomical coordinates and time
     obs_loc = root.WhereWhen.ObsDataLocation.ObservationLocation

@@ -4,15 +4,22 @@ import asyncio
 from datetime import datetime
 from queue import Queue
 from threading import Lock, Thread
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from .config import dev
 from .consumer.main import ConsumeLoop, prepare_consumer
 from .credentials import get_credentials
 from .sql.models import create_session
 from .sql.util import create_alert_tables
-from .telegram.main import create_tg_thread
 import matplotlib as mpl
+
+
+def import_tg_hook() -> Callable[[tuple[Any], dict[str, Any]], Thread]:
+    if "create_tg_thread" not in globals():
+        from .telegram.main import create_tg_thread
+        globals()["create_tg_thread"] = create_tg_thread
+
+    return globals()["create_tg_thread"]
 
 
 CONSUMER_CONFIG = {
@@ -64,6 +71,7 @@ class Application:
         self._threads.append(consume_loop.to_thread())
 
     def _spawn_telegram_thread(self):
+        create_tg_thread = import_tg_hook()
         main_tg_thread = create_tg_thread(que=self._que)
         self._threads.append(main_tg_thread)
 

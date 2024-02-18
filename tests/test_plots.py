@@ -6,8 +6,10 @@ from aware.site.main import Abastumani_AS32
 from astropy.time import Time, TimeDelta
 from aware.alert.plugins.lvc import LVC_PRELIMINARY_Parser
 from aware.visualization import plot_moc
+from aware.visualization.find_chart import plot_find_chart
 import os
 import matplotlib as mpl
+from astropy import units as u
 
 
 def test_vis_plot(tmpdir: str):
@@ -22,6 +24,19 @@ def test_vis_plot(tmpdir: str):
         fig_path=fn,
     )
 
+    assert os.path.exists(fn) and os.path.getsize(
+        fn
+    ), "Not empty plot file should exist"
+
+
+
+def test_find_chart_plot(tmpdir: str):
+    mpl.use("agg")
+    c = SkyCoord(0, 0, unit=["deg"] * 2)
+    R = Angle(15*u.arcmin)
+    fn = tmpdir.join("plot.png")
+    ax = plot_find_chart(c, R, "")
+    ax.get_figure().savefig(fn)
     assert os.path.exists(fn) and os.path.getsize(
         fn
     ), "Not empty plot file should exist"

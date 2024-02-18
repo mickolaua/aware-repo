@@ -17,9 +17,10 @@ from ligo.skymap.plot.marker import reticle
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib_scalebar.scalebar import ScaleBar
+from scipy.ndimage import gaussian_filter
 
 
-def plot_find_chart(center: SkyCoord, radius: Angle, name: str) -> Axes:
+def plot_find_chart(center: SkyCoord, radius: Angle, name: str = "") -> Axes:
     img: HDUList = SkyView.get_images(
         center,
         survey="DSS",
@@ -30,21 +31,22 @@ def plot_find_chart(center: SkyCoord, radius: Angle, name: str) -> Axes:
     ]  # type: ignore
     hdr = img[0].header  # type: ignore
     data = img[0].data  # type: ignore
-    vmin = data.mean() - data.std()  # type: ignore
-    vmax = data.mean() + data.std()  # type: ignore
+    data = gaussian_filter(data, sigma=1.0)
     wcs = WCS(hdr)
+    fig = plt.figure(figsize=(6,6), dpi=192)
     ax = plt.subplot(projection=wcs)
-    interval = PercentileInterval(90)
+    fig.add_axes(ax)
+    interval = PercentileInterval(99)
     stretch = SqrtStretch()
-    imshow_norm(data, ax, interval=interval, stretch=stretch)  # type: ignore
+    imshow_norm(data, ax, interval=interval, stretch=stretch, cmap="bone")  # type: ignore
     ax.plot(
         center.ra.deg,  # type: ignore
         center.dec.deg,  # type: ignore
         ls="",
         # Left Top crosshair
-        marker=reticle(which="lt"),
-        ms=5 * radius.to_value("arcmin"),  # type: ignore
-        markeredgewidth=3,
+        marker=reticle(inner=0.3, which="lt"),
+        ms=2.5 * radius.to_value("arcmin"),  # type: ignore
+        markeredgewidth=2,
         color="red",
         transform=plt.gca().get_transform("world"),
     )
@@ -58,9 +60,9 @@ def plot_find_chart(center: SkyCoord, radius: Angle, name: str) -> Axes:
         height_fraction=0.005,
         frameon=False,
         font_properties={"size": 12, "weight": "bold"},
-        scale_formatter=lambda value, dimension: f"{value} arcsec",
+        scale_formatter=lambda value, dimension: f"{value} arcmin",
     )
-    scale_bar.set_color("red")
+    scale_bar.set_color("black")
     ax.add_artist(scale_bar)
     ax.grid(True)
     ax.set_xlabel("RA")
@@ -71,6 +73,11 @@ def plot_find_chart(center: SkyCoord, radius: Angle, name: str) -> Axes:
         frameon=False,
         labelcolor="red",
         edgecolor="b",
+    )
+    name = (
+        name
+        if name
+        else "J" + center.to_string("hmsdms", sep="", precision=1).replace(" ", "")
     )
     ax.set_title(f"Finding chart of {name}")
 

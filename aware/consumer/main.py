@@ -10,6 +10,7 @@
 # Copyright:   (c) 2004-2022 AWARE Developers
 # ----------------------------------------------------------------------------
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -363,10 +364,19 @@ class ConsumeLoop:
         log.debug("\nParsing the alert ...")
         info = await parse_alert(message.value(), message.topic())
         if info is None:
-            log.debug(
+            log.info(
                 "Alert was ignored. Possibly, it is only available in develop mode."
             )
             return
+        else:
+            # Display sender information in log with trigger date
+            log.info(
+                "Alert from %s (%s) triggered at %s",
+                info.origin,
+                info.event,
+                info.trigger_date,
+            )
+
         log.debug(info)
 
         # Do not send plots and observational messages if the event matches previous
@@ -452,7 +462,7 @@ class ConsumeLoop:
             pack_type = full_topic_name_to_short(info.packet_type)
             body = (
                 f"[{event_head}]\n"
-                + f"From: {origin}\n"
+                + f"From: {info.origin}\n"
                 + f"Trigger ID: {info.event}\n"
                 + f"Trigger Date: {trigger_ } UTC\n"
                 + f"Packet: {pack_type}\n"
@@ -471,7 +481,7 @@ class ConsumeLoop:
                         else ""
                     )
                     if not info.rejected
-                    else "EVENT IS RETRACKED!"
+                    else "EVENT CANCELED!"
                 )
             )
             alert_message = TelegramAlertMessage(uuid, senter, body, info.packet_type)
@@ -481,6 +491,7 @@ class ConsumeLoop:
         if (
             send_obs_data
             and not info.rejected
+            and info.localization is not None 
             and (info.localization.area().value < max_area_trigger.value)
         ):
             sites = list(
@@ -490,8 +501,6 @@ class ConsumeLoop:
             )
             now = Time(datetime.now().isoformat(), format="isot")
             loc = info.localization
-            local_files = []
-            dist_files = []
 
             # TODO:
             # For those scopes that has large enough FOV to cover the entire sky map
@@ -513,7 +522,8 @@ class ConsumeLoop:
                     s.name for s in sites if not s.fov.is_widefield
                 )
                 planner.plan_observations(
-                    wide_field_telescopes, narrow_field_telescopes
+                    wide_field_telescopes, narrow_field_telescopes, 
+                    disable_intersections=False
                 )
                 planner.save_plan_fits(wide_field_telescopes, narrow_field_telescopes)
                 saved_blocks = planner.save_blocks()
@@ -533,7 +543,7 @@ class ConsumeLoop:
                             f"plan_map_{origin}_{event}_{name}_day{planner.day}.png"
                         )
                         plot_name_safe = sanitize_filename(
-                            plot_name, replacement_text="_"
+                            plot_name, replacement_text="_", platform="linux",
                         )
                         plot_path = os.path.join(outdir, plot_name_safe)
                         fig = ax.get_figure()
@@ -593,39 +603,34 @@ class ConsumeLoop:
                             outdir,
                             f"{event_name}.list",
                         )
-                        fname_safe = sanitize_filepath(fname, replacement_text="_")
+                        fname_safe = sanitize_filepath(
+                            fname, replacement_text="_", platform="linux"
+                        )
                         await save_file(fname_safe, obs_program)
 
                         plot_fname = os.path.join(outdir, f"{event_name}.png")
-                        plot_fname_safe = sanitize_filepath(
-                            plot_fname, replacement_text="_"
+                        plot_fname = sanitize_filepath(
+                            plot_fname, replacement_text="_", platform="linux"
                         )
                         fig = ax.get_figure()
-                        fig.savefig(plot_fname)
+                        fig.savefig(plot_fname_safe)
                     else:
                         # Do not send empty observational program
                         fname = ""
                         plot_fname = ""
+                        comment = ""
 
                     async with self._lock:
                         data_package = TelegramDataPackage(
-                            uuid, info, info.packet_type, s, fname, plot_fname
+                            uuid,
+                            info,
+                            info.packet_type,
+                            s,
+                            fname,
+                            plot_fname,
+                            comment=comment,
                         )
                         await que.put(data_package)
-
-        #     if obs_program:
-        #         upload_files(fname, f"/uploads/{info.event}/{s.name}/targets_{uuid}_{s.name}.{s.default_target_list_fmt}")
-        #         upload_files(plot_fname, f"/uploads/{info.event}/{s.name}/targets_{uuid}_{s.name}.png")
-
-        # async with self._lock:
-        #     url = TelegramSFTPUrl(uuid, info.event, "", f"/uploads/{uuid}")
-        #     await que.put(url)
-
-        # async with self._lock:
-        #     data_package = TelegramDataPackage(
-        #         uuid, info, s.full_name, fname, plot_fname
-        #     )
-        #     await que.put(data_package)
 
         self._commited_messages += 1
         if self._commited_messages % self._max_commit_messages:
