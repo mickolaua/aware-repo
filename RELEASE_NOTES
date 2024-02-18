@@ -38,6 +38,13 @@ In this minor release:
 - List of available telescopes appears sorted now in Telegram
 - 300 dpi in sky find chart, and better colors
 
+## v0.4.5
+
+- Fixed issue with id columns of alert and settings tables in the database
+- Settings table now has separate id column as a primary key
+- Chat id column in the settings table now has VARCHAR(256) type (autoconvertable to int in Python) to prevent overflows caused by integer values in SQL
+
+
 # v0.3.0
 
 Since this release, native Windows platform is not supported!

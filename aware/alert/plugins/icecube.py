@@ -116,10 +116,10 @@ def parse_icecube_astrotrack_voevent(
             descr += f"\nFAR: {FAR:.2g} yr-1"
 
         if P_astro is not None:
-            descr += f"P_Astro: {P_astro:.2g}"
+            descr += f"\nP_Astro: {P_astro:.2g}"
 
         if E_Nu is not None:
-            descr += f"E_Nu: {E_Nu:.2g} TeV"
+            descr += f"\nE_Nu: {E_Nu:.2g} TeV"
 
     info = TargetInfo(
         sky_map,

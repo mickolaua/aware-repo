@@ -7,11 +7,13 @@ from sqlalchemy import (
     REAL,
     Column,
     DateTime,
+    Dialect,
     ForeignKey,
     Integer,
     String,
     Text,
     BigInteger,
+    VARCHAR
 )
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -22,6 +24,8 @@ from sqlalchemy.orm import (
     scoped_session,
     sessionmaker,
 )
+from sqlalchemy.sql.operators import OperatorType
+from sqlalchemy.types import TypeDecorator
 import sqlcipher3
 
 from ..config import CfgOption
@@ -41,10 +45,32 @@ query_db = CfgOption("query", "", list)
 Base: DeclarativeMeta = declarative_base()
 
 
+class TelegramID(TypeDecorator):
+    """
+    Telegram ID, which is stored as a string in the database, but is returned as a 
+    integer in Python.
+    """
+
+    impl = VARCHAR
+
+    def process_bind_param(self, value: Any | None, dialect: Dialect) -> Any:
+        if value is not None:
+            value = str(value)
+        return value
+    
+    def process_result_value(self, value: Any | None, dialect: Dialect) -> Any | None:
+        if value is not None:
+            value = int(value)
+        return value
+    
+    def coerce_compared_value(self, op: OperatorType | None, value: Any) -> Any:
+        return self.impl.coerce_compared_value(op, value)
+
+
 class Alert(Base):
     __tablename__ = "alert"
 
-    id = Column(BigInteger, autoincrement=True, primary_key=True)
+    id = Column(Integer, autoincrement=True, primary_key=True)
     alert_message = Column(Text)
     ra_center = Column(REAL)
     dec_center = Column(REAL)
@@ -77,7 +103,8 @@ class MatchedAlert(Base):
 
 class Subscriber(Base):
     __tablename__ = "settings"
-    chat_id = Column(BigInteger, unique=True, primary_key=True)
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    chat_id = Column(TelegramID(256), unique=True)
     content_type = Column(String(256))
     alert_type = Column(Text)
     telescopes = Column(Text)
