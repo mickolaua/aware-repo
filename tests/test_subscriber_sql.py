@@ -28,7 +28,7 @@ def test():
 
         subs = s.query(Subscriber).all()
         assert all(
-            [isinstance(sub.chat_id, (NoneType, int)) for sub in subs]
+            [isinstance(sub.chat_id, (type(None), int)) for sub in subs]
         ), "Chat_id must be integer"
 
 
