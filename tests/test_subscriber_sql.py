@@ -1,9 +1,4 @@
-from types import NoneType
 from aware.sql.models import Subscriber, create_session, Base
-from sqlalchemy.engine import create_engine, url
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
-import sqlcipher3
 
 
 def test():
