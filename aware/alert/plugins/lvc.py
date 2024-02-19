@@ -18,9 +18,8 @@ from ...voevent import VOEvent
 from ..parser import AlertParser
 from ..target_info import TargetInfo
 from ...config import CfgOption, dev
-from ..util import is_retracted
 from ...util import download_file
-from ...data import cache_dir
+import aware.data
 from ...topic import full_topic_name_to_short
 
 __all__ = [
@@ -41,8 +40,8 @@ HZ_to_reciprocal_yr = 31557600
 
 
 def is_observable_bbh(loc: LVCSkyMap) -> bool:
-    """Is the localization of the BBH event should be observed? Here, we attempt to 
-    find a likely possible optical transients occured due to the capture of the 
+    """Is the localization of the BBH event should be observed? Here, we attempt to
+    find a likely possible optical transients occured due to the capture of the
     surrounding material to the merger of two black holes.
 
     Parameters
@@ -129,7 +128,7 @@ def parse_lvc_alert(
     -------
     TargetInfo | None
         The target info or None in case of a mock data event
-    """    
+    """
 
     rejected = True if topic == "gcn.classic.voevent.LVC_RETRACTION" else False
 
@@ -173,7 +172,9 @@ def parse_lvc_alert(
                     "Downloading HEALPix for LVK %s; try %d/%d", event_id, i, tries
                 )
                 unique = full_topic_name_to_short(topic).lower()
-                local_path = posixpath.join(cache_dir.value, f"lvc_{event_id}", unique)
+                local_path = posixpath.join(
+                    aware.data.cache_dir.value, f"lvc_{event_id}", unique
+                )
                 os.makedirs(local_path, exist_ok=True)
                 status = download_file(healpix_url, path=local_path, timeout=timeout)
                 filename = posixpath.split(healpix_url)[1]

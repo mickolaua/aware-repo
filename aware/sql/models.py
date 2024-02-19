@@ -1,32 +1,25 @@
 from __future__ import annotations
-from typing import Any
-import warnings
 
+from typing import Any
+
+import sqlcipher3
 from sqlalchemy import (
     BLOB,
     REAL,
+    VARCHAR,
     Column,
     DateTime,
     Dialect,
     ForeignKey,
     Integer,
+    MetaData,
     String,
     Text,
-    BigInteger,
-    VARCHAR
 )
 from sqlalchemy.engine import URL, Engine, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import (
-    DeclarativeMeta,
-    Session,
-    relationship,
-    scoped_session,
-    sessionmaker,
-)
+from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 from sqlalchemy.sql.operators import OperatorType
 from sqlalchemy.types import TypeDecorator
-import sqlcipher3
 
 from ..config import CfgOption
 
@@ -42,27 +35,39 @@ port_db = CfgOption("port", 8080, int)
 query_db = CfgOption("query", "", list)
 
 
-Base: DeclarativeMeta = declarative_base()
+naming_convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(column_0_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+metadata = MetaData(naming_convention=naming_convention)
+
+
+class Base(DeclarativeBase):
+    metadata = metadata
 
 
 class TelegramID(TypeDecorator):
     """
-    Telegram ID, which is stored as a string in the database, but is returned as a 
+    Telegram ID, which is stored as a string in the database, but is returned as a
     integer in Python.
     """
 
     impl = VARCHAR
+    cache_ok = True
 
     def process_bind_param(self, value: Any | None, dialect: Dialect) -> Any:
         if value is not None:
             value = str(value)
         return value
-    
+
     def process_result_value(self, value: Any | None, dialect: Dialect) -> Any | None:
         if value is not None:
             value = int(value)
         return value
-    
+
     def coerce_compared_value(self, op: OperatorType | None, value: Any) -> Any:
         return self.impl.coerce_compared_value(op, value)
 

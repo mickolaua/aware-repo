@@ -54,6 +54,14 @@ In this minor release:
 
 - Fixed problem with conical MOC creation with mocpy>0.12
 
+## v0.4.7
+
+- Fixed circular import in LVC plugin, when using AWARE in interactive mode
+- Fixed visibility curve calculation, introduced in v0.4.4
+- Added cache_ok=True flag for TelegramID type
+- Use default naming convention for table constraints for easier migration
+- Define declarative base in SQLAlchemy 2.0 style
+
 
 # v0.3.0
 

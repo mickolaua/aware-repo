@@ -1,6 +1,5 @@
 from __future__ import annotations
 import posixpath
-from .data import cache_dir
 from uuid import uuid4
 from .logger import log
 import requests
@@ -9,7 +8,7 @@ import requests
 def download_file(
     url: str,
     timeout: float = 1.0,
-    path: str = cache_dir.value,
+    path: str = ".",
     chunk_size: int = 2048,
     overwrite: bool = False,
     raise_file_exist: bool = False

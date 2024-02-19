@@ -154,7 +154,7 @@ class Site(Observer):
         else:
             night_duration = end_time.jd - start_time.jd
             total_exposure = np.floor(
-                self.exposure.to_value("day") * self.default_exposure_number
+                self.default_exposure.to_value("day") * self.default_exposure_number
             )
             single_slew_time = total_exposure + self.default_slew_rate.to_value("day")
             Npoints = np.ceil(night_duration / single_slew_time)
