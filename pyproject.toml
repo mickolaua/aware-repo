@@ -38,7 +38,8 @@ dependencies = [
     "pathvalidate",
     "pendulum",
     "matplotlib_scalebar",
-    "pyyaml"
+    "pyyaml",
+    "adjustText"
 ]
 dynamic = ["readme"]
 
