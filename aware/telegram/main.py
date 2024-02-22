@@ -45,7 +45,7 @@ from aiogram_dialog.widgets.when import Whenable
 from astroplan import FixedTarget
 from astroplan.plots.finder import plot_finder_image
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, Angle
 from astropy.time import Time
 from astropy.wcs import WCS
 from astroquery.skyview import SkyView
@@ -62,6 +62,7 @@ from ..logger import log
 from ..visualization.find_chart import plot_find_chart
 from .util import send_short_messages_from_long_message, user_info_string
 from ..topic import full_topic_name_to_short, short_topic_name_to_full
+from ..cache import pop_cache, write_cache, read_cache
 
 # Options
 send_delay = CfgOption("send_delay", 2.0, float)
@@ -94,16 +95,19 @@ async def show_available_sites(message: aiogram.types.Message):
         message.chat.id,
         datetime.now(),
     )
-
+    key = "telescopes"
     try:
-        msg = "\n".join(
-            sorted(
+        telescopes = read_cache(key)
+        if not telescopes:
+            telescopes = sorted(
                 [
                     site.Telescopes[site_id].full_name
                     for site_id in site.default_sites.get_value()
                 ]
             )
-        )
+            write_cache(key, telescopes)
+
+        msg = "\n".join(telescopes)
     except Exception as e:
         msg = ""
 
@@ -123,11 +127,94 @@ async def show_available_sites(message: aiogram.types.Message):
 @dp.message_handler(commands="status")
 async def status(message: aiogram.types.Message):
     log.debug(
-        "telegram.status(): user asked for status in chat (id=%d) on %s",
-        message.chat.id,
-        datetime.now(),
+        "telegram.status(): user asked for status",
     )
-    await message.reply(f"I am {'running' if running else 'idle'}")
+    await message.reply(f"I am serving.")
+
+
+@dp.message_handler(commands="visplot")
+@dp.message_handler(
+    lambda msg: msg.text.startswith("/visplot") and len(msg.text.split(" ")) == 6
+)
+async def status(message: aiogram.types.Message):
+    log.debug(
+        "telegram.status(): user asked for visibility plot",
+    )
+    try:
+        cmd_name, name, ra, dec, date, telescope_id = message.text.split(" ")
+    except TypeError:
+        return await message.reply(
+            "Invalid message format, should be like this: <name> <ra> <dec> <date> <telescope_id>"
+        )
+
+    if telescope_id not in site.Telescopes:
+        await message.reply(f"Telescope with id={telescope_id} is not available")
+    else:
+        telescope = site.Telescopes[telescope_id]
+        coord = SkyCoord(ra, dec)
+        target = FixedTarget(coord, name)
+        init_time = Time(date, format="isot")
+        key = f"telescope_id={telescope_id} target={name} ra={coord.ra.deg:.0f} dec={coord.dec.deg:.0f} date={init_time.datetime.date()}"
+        plot_file_content = read_cache(key)
+        if plot_file_content is None:
+            start_time, end_time = telescope.nearest_observation_window(init_time)
+            ax = telescope.plot_airmass(
+                [target], start_time=start_time, end_time=end_time
+            )
+            plot_file = BytesIO()
+            ax.get_figure().savefig(plot_file)
+            plot_file.seek(0)
+            plot_file_content = plot_file.read()
+            write_cache(key, plot_file_content)
+
+        plot_file = BytesIO(plot_file_content)
+
+        await message.bot.send_photo(
+            message.chat.id,
+            aiogram.types.InputFile(plot_file),
+            caption="Your visibility plot",
+            reply_to_message_id=message.message_id,
+        )
+
+
+# @dp.message_handler(
+#     lambda message: message.text.startswith("/filter")
+#     and len(message.text.split(" ")) == 2
+# )
+# async def set_filter(message: aiogram.types.Message):
+#     _, msg_filter = message.text.split(" ")
+
+#     can_filter = False
+#     try:
+#         admins = await message.chat.get_administrators()
+#         ids = set([a.user.id for a in admins])
+#         can_filter = message.from_id in ids and bot.id in ids
+#     except aiogram.exceptions.BadRequest:
+#         can_filter = True
+
+#     if can_filter:
+#         key = f"chat_{message.chat.id}_filters"
+#         write_cache(key, msg_filter)
+
+
+# @dp.message_handler()
+# async def remove_message(message: aiogram.types.Message):
+#     can_filter = False
+#     try:
+#         admins = await message.chat.get_administrators()
+#         ids = set([a.user.id for a in admins])
+#         can_filter = message.from_id in ids and bot.id in ids
+#     except aiogram.exceptions.BadRequest:
+#         can_filter = True
+
+#     if can_filter:
+#         msg_filter = read_cache(f"chat_{message.chat.id}_filters")
+#         if (
+#             msg_filter is not None
+#             and message.from_id == message.bot.id
+#             and re.search(msg_filter, message.text)
+#         ):
+#             await message.bot.delete_message(message.chat.id, message.message_id)
 
 
 # @dp.message_handler(commands="run")
@@ -223,59 +310,65 @@ async def status(message: aiogram.types.Message):
 #         await message.reply("You are not admin or owner of this chat!")
 
 
-@dp.message_handler(regexp="[\d\w]+[\t ]\d+(\.\d+)?[\t ]\d+(\.\d+)?")
 @dp.message_handler(commands=["findchart"])
+@dp.message_handler(
+    lambda message: message.text.startswith("/findchart")
+    and len(message.text.split(" ")) == 3
+)
 async def finding_chart(message: aiogram.types.Message):
     log.debug(
         "user asked for finding chart",
-        message.chat.id,
     )
-
     try:
-        name, ra, dec = "", None, None
-        for m in re.finditer("^[\w\d]+", message.text):
-            name = m.string
-            break
-
-        ra_dec_match = [
-            m.group()
-            for m in re.finditer(r"(\d+)(\.\d+)?", message.text)
-            if m is not None
-        ]
-        if ra_dec_match and len(ra_dec_match) == 2:
-            ra, dec = ra_dec_match
+        _, name, ra, dec = message.text.split(" ")
+        try:
             ra = float(ra)
+            ra = Angle(ra, unit="deg")
+        except ValueError:
+            ra = Angle(ra, unit="hr")
+
+        try:
             dec = float(dec)
-    except Exception as e:
-        log.error(
-            "failed to parse target name and coordinates " "from user message: %s",
-            message.text,
-            exc_info=e,
-        )
+        except ValueError:
+            ...
 
-    if name is None or ra is None or dec is None:
-        return await message.reply("Sorry, I do not understand.")
+        dec = Angle(dec, unit="deg")
 
-    try:
-        ax = plot_find_chart(SkyCoord(ra, dec, unit=["deg"] * 2), 15 * u.arcmin, name)
-        io = BytesIO()
-        ax.get_figure().savefig(io)
-        io.seek(0)
+        coord = SkyCoord(ra, dec)
+        key = f"ra={coord.ra.deg:.0f}, dec={coord.dec.deg:.0f}, name={name}"
+        plot_file_content = read_cache(key)
+        if plot_file_content is None:
+            ax = plot_find_chart(coord, 15 * u.arcmin, name)
+            plot_file = BytesIO()
+            ax.get_figure().savefig(plot_file, format="png")
+            plot_file.seek(0)
+            plot_file_content = plot_file.read()
+            write_cache(key, plot_file_content)
+
+        plot_file = BytesIO(plot_file_content)
 
         await message.bot.send_photo(
             message.chat.id,
-            aiogram.types.InputFile(io),
+            aiogram.types.InputFile(plot_file),
             reply_to_message_id=message.message_id,
         )
+    except IndexError as e:
+        log.error(
+            "field is not available in SkyView or no connection: %s",
+            e,
+            exc_info=e,
+        )
+        await message.reply("Field is not available in Sky View")
     except Exception as e:
         log.error(
-            "can not create finding chart for target %s " "at (%.5f, %.5f)",
-            ra,
-            dec,
+            "can not create finding chart, message was %s",
+            message.text,
             exc_info=e,
         )
         await message.reply(
-            "Sorry, unable to create the finding chart with provided parameters."
+            "Unable to create the finding chart with provided parameters. Tip: check "
+            "the format, it must be like so: /findchart <name> <ra> <dec> (brackets "
+            "are ommited)."
         )
 
 
@@ -366,14 +459,29 @@ async def add_subscriber(
 
 
 def select_subscribers():
-    engine, session = create_session()
-    with session:
-        subscribers = session.query(Subscriber).all()
-        for i, sub in enumerate(subscribers):
-            sub.alert_type = sub.alert_type.split(",")
-            sub.content_type = sub.content_type.split(",")
-            sub.telescopes = sub.telescopes.split(",")
-            subscribers[i] = sub
+    key = "subscribers"
+    subscribers = read_cache(key)
+    if subscribers:
+        subscribers = [Subscriber(**kws) for kws in subscribers]
+    else:
+        engine, session = create_session()
+        sub_kwargs = []
+        with session:
+            subscribers = session.query(Subscriber).all()
+            for i, sub in enumerate(subscribers):
+                sub.alert_type = sub.alert_type.split(",")
+                sub.content_type = sub.content_type.split(",")
+                sub.telescopes = sub.telescopes.split(",")
+                subscribers[i] = sub
+                sub_kwargs.append(
+                    {
+                        "chat_id": sub.chat_id,
+                        "alert_type": sub.alert_type,
+                        "content_type": sub.content_type,
+                        "telescopes": sub.telescopes,
+                    }
+                )
+        write_cache(key, sub_kwargs)
 
     # yield from subscribers
     return subscribers
@@ -414,6 +522,15 @@ async def unsubscribe(m: aiogram.types.Message):
                 )
                 session.delete(obj)
                 session.commit()
+
+            thread = Thread(
+                None,
+                pop_cache,
+                args=("subscribers",),
+                name="subscriber_unsub_cache_thread",
+            )
+            thread.start()
+            thread.join()
 
             return await m.reply("You was unsubscribed!")
 
@@ -545,6 +662,14 @@ async def on_subscription(
     if ok:
         await asyncio.sleep(2)
         await c.message.reply("You are subscribed!")
+        thread = Thread(
+            None,
+            pop_cache,
+            args=("subscribers",),
+            name="subscriber_expire_cache_thread",
+        )
+        thread.start()
+        thread.join()
     else:
         await asyncio.sleep(2)
         await c.message.reply("You are NOT subscribed.\n")
@@ -644,11 +769,11 @@ async def processing_loop(
                             f"Filename: {os.path.basename(data.plot_fname)}"
                         )
 
-                        try:
-                            await asyncio.sleep(2)
-                            await bot.send_message(sub.chat_id, msg)
-                        except Exception as e:
-                            log.error("can not send message", exc_info=e)
+                        # try:
+                        #     await asyncio.sleep(2)
+                        #     await bot.send_message(sub.chat_id, msg)
+                        # except Exception as e:
+                        #     log.error("can not send message", exc_info=e)
 
                         # Split the message into short ones and sent them
                         await asyncio.sleep(2)
@@ -657,6 +782,7 @@ async def processing_loop(
                             await bot.send_photo(
                                 sub.chat_id,
                                 aiogram.types.InputFile(data.plot_fname),
+                                caption=msg
                             )
                         except Exception as e:
                             log.error("can not send photo", exc_info=e)
@@ -671,12 +797,12 @@ async def processing_loop(
                             f"{os.path.basename(data.plan_filename)}\n"
                             f"{data.comment}\n"
                         )
-                        await asyncio.sleep(2)
-                        try:
-                            await asyncio.sleep(2)
-                            await bot.send_message(sub.chat_id, msg)
-                        except Exception as e:
-                            log.error("can not send messages", exc_info=e)
+                        # await asyncio.sleep(2)
+                        # try:
+                        #     await asyncio.sleep(2)
+                        #     await bot.send_message(sub.chat_id, msg)
+                        # except Exception as e:
+                        #     log.error("can not send messages", exc_info=e)
 
                         await asyncio.sleep(2)
 
@@ -685,6 +811,7 @@ async def processing_loop(
                             await bot.send_document(
                                 sub.chat_id,
                                 aiogram.types.InputFile(data.plan_filename),
+                                caption=msg
                             )
                         except Exception as e:
                             log.error(

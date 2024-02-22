@@ -14,16 +14,16 @@ from functools import cached_property
 from typing import Any, Optional, Sequence
 
 import numpy as np
+from adjustText import adjust_text
 from astroplan.observer import Observer
-from astroplan.plots import plot_airmass
+from astroplan.plots import plot_airmass, plot_altitude
 from astroplan.target import FixedTarget
 from astropy import units as u
-from astropy.time import Time, TimeDelta
 from astropy.coordinates import Angle, Latitude, Longitude
-
+from astropy.time import Time, TimeDelta
 from matplotlib import pyplot as plt
-from matplotlib.dates import DateFormatter
 from matplotlib.axes import Axes
+from matplotlib.dates import DateFormatter
 
 from aware.logger import log
 
@@ -157,7 +157,7 @@ class Site(Observer):
                 self.default_exposure.to_value("day") * self.default_exposure_number
             )
             single_slew_time = total_exposure + self.default_slew_rate.to_value("day")
-            Npoints = np.ceil(night_duration / single_slew_time)
+            Npoints = int(np.ceil(night_duration / single_slew_time))
             time_grid = Time(
                 np.linspace(start_time.jd, end_time.jd, Npoints), format="jd"
             )
@@ -225,21 +225,37 @@ class Site(Observer):
 
         fig, ax = plt.subplots(figsize=(8, 6), dpi=96)
 
+        def _airmass_to_alt(airmass):
+            return 90 - np.rad2deg(np.arccos(1 / airmass))
+
         # Astroplan emits warnings on some problems with line style in graph
         # we dont want to see
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
             if time is None:
-                time = Time(np.linspace(start_time.jd, end_time.jd, 150), format="jd")
-            ax = plot_airmass(
+                night_duration = end_time.jd - start_time.jd
+                total_exposure = np.floor(
+                    self.default_exposure.to_value("day") * self.default_exposure_number
+                )
+                single_slew_time = total_exposure + self.default_slew_rate.to_value(
+                    "day"
+                )
+                Npoints = int(np.ceil(night_duration / single_slew_time))
+                time = Time(
+                    np.linspace(start_time.jd, end_time.jd, Npoints), format="jd"
+                )
+
+            plot_altitude(
                 targets,
                 self,
                 time.datetime,
                 ax=ax,
-                min_airmass=1.0,
-                max_airmass=3.8,
+                min_altitude=0,
+                max_altitude=90,
+                airmass_yaxis=True,
             )
 
+        # ax.invert_yaxis()
         ax.xaxis.set_major_formatter(DateFormatter("%H"))
 
         if show_moon:
@@ -249,23 +265,58 @@ class Site(Observer):
             altaz = self.moon_altaz(airmass_time)
             moon_airmass = altaz.secz
             good = moon_airmass > 0
+            moon_alt = _airmass_to_alt(moon_airmass.value)
             ax.plot(
-                airmass_time[good].datetime, moon_airmass[good], "k--", label="The Moon"
+                airmass_time[good].datetime, moon_alt[good], "k--", label="The Moon"
             )
 
-            # TODO: Separation angle between the Moon and a target (in degrees)
-            # for tgt in targets:
+            # The Moon separation angle (in degrees) and its illumination phase
+            annotate_time = Time(
+                np.linspace(start_time.jd, end_time.jd, 5), format="jd"
+            )
+            annotations = []
+            for target in targets:
+                sep2d = altaz.separation(target.coord).to_value("deg")[0]
+                airmass = self.altaz(annotate_time, target).secz
+                alt = _airmass_to_alt(airmass.value)
+                for t, h in zip(annotate_time, alt):
+                    if h > 0:
+                        annot = ax.text(
+                            t.datetime,
+                            h,
+                            f"{sep2d:.1f}",
+                            size=8,
+                        )
+                        annotations.append(annot)
 
-        secz_ticks = np.asarray(ax.get_yticks())
+            moon_brightess = self.moon_illumination(annotate_time)
+            for ph, t, h in zip(
+                moon_brightess,
+                annotate_time,
+                _airmass_to_alt(self.moon_altaz(annotate_time).secz.value),
+            ):
+                if h > 0:
+                    annot = ax.text(
+                        t.datetime,
+                        h,
+                        f"{ph:.1%}",
+                        size=8,
+                    )
+                    annotations.append(annot)
 
-        def _airmass_to_alt(airmass):
-            return 90 - np.rad2deg(np.arccos(1 / airmass))
+            # Prevent annotations from overlapping
+            adjust_text(
+                annotations, arrowprops=dict(arrowstyle="->", color="r", lw=0.5)
+            )
 
-        alt = _airmass_to_alt(secz_ticks)
-        ax2 = ax.secondary_yaxis("right")
-        ax2.set_yticks(secz_ticks)
-        ax2.set_yticklabels([f"{t:.01f}" for t in alt])
-        ax2.set_ylabel("Altitude, deg")
+
+        # secz_ticks = np.asarray(ax.get_yticks())
+
+        # alt = _airmass_to_alt(secz_ticks)
+        # ax2 = ax.secondary_yaxis("right")
+        # ax2.set_yticks(secz_ticks)
+        # ax2.set_yticklabels([f"{t:.01f}" for t in alt])
+        # ax2.set_ylabel("Altitude, deg")
 
         # Add offsets of 30 minutes from each side to fit the whole
         # observational window in the graph
@@ -275,7 +326,9 @@ class Site(Observer):
         ax.axvline(start_time.datetime, ls="-.", label="Obs. window")
         ax.axvline(end_time.datetime, ls="-.")
         ax.grid(True, lw=1, alpha=0.3)
-        ax.tick_params(axis="both", which="both", top=True, right=True, direction="in")
+        ax.tick_params(
+            axis="both", which="both", top=False, right=False, direction="in"
+        )
         ax.tick_params(axis="x", rotation=0)
         ax.set_title(
             "Site {:s}\nLongitude: {:.5f} deg, Latitude: {:.5f} deg".format(

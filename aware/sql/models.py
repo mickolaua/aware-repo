@@ -15,6 +15,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Text,
+    UniqueConstraint
 )
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
@@ -89,13 +90,14 @@ class Alert(Base):
 
 class RejectedAlert(Base):
     __tablename__ = "reject_alert"
+
     id = Column(Integer, autoincrement=True, primary_key=True)
     event = Column(String(256))
     origin = Column(String(256))
 
     # One-to-one relationship with alert table.
-    alert_id = Column(Integer, ForeignKey(Alert.id), unique=True)
-    alert = relationship(Alert, backref=Alert.__tablename__, uselist=False)
+    alert_id = Column(Integer, ForeignKey(Alert.id))
+    alert = relationship(Alert, backref=Alert.__tablename__)
 
 
 class MatchedAlert(Base):

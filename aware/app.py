@@ -5,6 +5,7 @@ from datetime import datetime
 from queue import Queue
 from threading import Lock, Thread
 from typing import Any, Callable, Sequence
+import uuid
 
 from .config import dev
 from .consumer.main import ConsumeLoop, prepare_consumer
@@ -23,15 +24,16 @@ def import_tg_hook() -> Callable[[tuple[Any], dict[str, Any]], Thread]:
 
 
 CONSUMER_CONFIG = {
-    "group.id": "lvk" if not dev.value else "lvk-test",
+    "group.id": "" if dev.value else uuid.uuid4().hex,
     # Infinitely read messages in development mode since the beginning of
     # the partition
-    "auto.offset.reset": "earliest" if dev.get_value() else "latest",
-    "enable.auto.commit": True,
+    "auto.offset.reset": "earliest" if dev.value else "latest",
+    "enable.auto.commit": False if dev.value else True,
     # Set maximum idle time out between reading topic records to 1 day
     # (in msec) to prevent application maximum poll interval exceeded
     "max.poll.interval.ms": 86_400_000,
 }
+# CONSUMER_CONFIG = {}
 
 
 class Application:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AWARE"
-version = "0.4.7"
+version = "0.4.8"
 authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
 requires-python = ">=3.9,<3.12"
 dependencies = [
@@ -23,8 +23,9 @@ dependencies = [
     "colorama",
     "wheel",
     "matplotlib>=3.2.0",
-    "aiogram",
-    "mocpy",
+    "aiogram<3",
+    "aiogram_dialog",
+    "mocpy<=0.13.2",
     "astropy>=4.0",
     "astropy_healpix>=0.7.0",
     "astroplan",
@@ -36,7 +37,8 @@ dependencies = [
     "asyncclick",
     "pathvalidate",
     "pendulum",
-    "matplotlib_scalebar"
+    "matplotlib_scalebar",
+    "pyyaml"
 ]
 dynamic = ["readme"]
 
@@ -58,12 +60,14 @@ dev = [
     "pytest-asyncio"
 ]
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst"]}
 
 [tool.setuptools.packages.find]
-where = ["."]
-# include = ["aware*"]
+where = [".", "aware"]
 exclude = ["tests"]
 namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
 

@@ -62,6 +62,24 @@ In this minor release:
 - Use default naming convention for table constraints for easier migration
 - Define declarative base in SQLAlchemy 2.0 style
 
+## v0.4.8
+
+- Fixed incorrect plot safe filename in plotting
+- Fixed absent default value for VOEvent parameters
+- Fixed survey name in finding chart from DSS2 to DSS2 R
+- Fixed Kafka client configuration (in test mode, auto.commit is disabled, and group.id
+ is empty; in production mode group.id is uniquely set at each run),
+
+- Added type hint for config options
+- Added new script for visibility plots
+- Updated find chart plot (added compass)
+- Updated visibility plot (main yaxis is altitude now; the Moon phase, and separation angle)
+- Restored alert rejection functionality (a new event matching previously rejected one, 
+will be also rejected; all matched alerts with currently rejected one, will be marked 
+as rejected in the database)
+- Added cache support for queries to SkyView, telescope list retrieval, subscribers querying, 
+and for displaying available telescopes
+
 
 # v0.3.0
 

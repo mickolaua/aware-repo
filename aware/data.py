@@ -17,10 +17,10 @@ from .config import CfgOption
 
 
 products_dir = CfgOption(
-    "products_dir", "~/aware/products/", lambda _p: os.path.expanduser(_p)
+    "products_dir", "~/aware/products/", lambda _p: str(os.path.expanduser(_p))
 )
 cache_dir = CfgOption(
-    "cache_dir", "~/aware/cache/", lambda _p: os.path.expanduser(_p)
+    "cache_dir", "~/aware/cache/", lambda _p: str(os.path.expanduser(_p))
 )
 
 

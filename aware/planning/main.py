@@ -139,7 +139,15 @@ def nn_sorter(
     # from the list can be observed only in the narrow time window, but it's
     # airmass at the certain time is not minimal compared with other targets.
     if start_time is not None and end_time is not None:
-        time_grid = Time(np.linspace(start_time.jd, end_time.jd, 150), format="jd")
+        night_duration = end_time.jd - start_time.jd
+        total_exposure = np.floor(
+            site.default_exposure.to_value("day") * site.default_exposure_number
+        )
+        single_slew_time = total_exposure + site.default_slew_rate.to_value("day")
+        Npoints = int(np.ceil(night_duration / single_slew_time))
+        time_grid = Time(
+            np.linspace(start_time.jd, end_time.jd, Npoints), format="jd"
+        )
         at_low_airmass = np.argsort(
             np.sum(
                 site.altaz(time_grid, targets, grid_times_targets=True).secz

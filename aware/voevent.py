@@ -513,6 +513,7 @@ class VOEvent:
         self,
         name: str,
         type_: Callable[[bool | str], VoeventReturnType] = str,
+        default: VoeventReturnType | None = None,
     ) -> VoeventReturnType | None:
         """Find the parameter inside the VOEvent root by its name.
 
@@ -537,6 +538,6 @@ class VOEvent:
                 )
             )
         except AttributeError:
-            value = None
+            return type_(default) if default is not None else None
 
         return value

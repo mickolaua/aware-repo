@@ -5,6 +5,7 @@ Desc: Localization maps
 Created:  2023-02-05
 Modified: 2023-03-15
 """
+
 from __future__ import annotations
 
 import functools
@@ -28,7 +29,7 @@ from mocpy import MOC
 
 from aware.field import Field
 
-from ..angle import coord2str
+from ..angle import coord2str, coord_to_target_name
 
 # TODO: Implement these LIGO/Virgo functions for Windows
 if sys.platform.startswith("win"):
@@ -139,7 +140,7 @@ class CircularSkyMap(Localization):
         delta_depth: int = healpix_resolution_step.get_value(),
     ) -> MOC:
         """Generate Multi-Order Coverage map from center and radius."""
-        # In mocpy>0.12, first three arguments should be specified as keyword 
+        # In mocpy>0.12, first three arguments should be specified as keyword
         # arguments if one wants to provide max_depth and delta_depth
         return MOC.from_cone(
             lon=self.center().ra,
@@ -195,7 +196,9 @@ class CircularSkyMap(Localization):
         # Note, that 10% of FOV area may be affected with artefacts due to telescope
         # optics or telescope guiding issues
         if np.hypot(w, h) >= 0.9 * self.error_radius().to_value("deg"):
-            target = FixedTarget(self.center())
+            target = FixedTarget(
+                self.center(), name=coord_to_target_name(self.center())
+            )
             obs_targets = site.observable_targets([target], start, stop)
             sorted_targets = site.observation_order(
                 obs_targets, start_time=start, end_time=stop
@@ -390,7 +393,7 @@ class LVCSkyMap(Localization):
                 ls="",
                 ms=5,
                 marker=".",
-                label="GLADE+ galaxies"
+                label="GLADE+ galaxies",
             )
             ax.legend(loc=(1.0, 0.85), markerscale=2)
 

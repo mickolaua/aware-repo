@@ -9,10 +9,12 @@ import inspect
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence, TypeVar
+from typing import Any, Callable, Mapping, Sequence, TypeVar, Generic
 
 import dotenv
 import yaml
+
+import warnings
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -60,7 +62,7 @@ cfg = load_config()
 __T = TypeVar("__T")
 
 
-class CfgOption:
+class CfgOption(Generic[__T]):
     """
     YAML config option.
 
@@ -74,7 +76,7 @@ class CfgOption:
         a function that processes and validates the value type
     """
 
-    def __init__(self, name: str, value: Any, typ: Callable[[Any], Any]) -> None:
+    def __init__(self, name: str, value: Any, typ: Callable[..., __T]) -> None:
         self._name = name
         self._value = value
         self.typ = typ
@@ -82,7 +84,7 @@ class CfgOption:
         # Get caller filename here or it will always return filename where is the base
         # class located
         self.__filename = inspect.currentframe().f_back.f_code.co_filename
- 
+
     def __get_aware_pkg_root(self) -> str:
         """
         Get the path to the AWARE root directory
@@ -125,7 +127,14 @@ class CfgOption:
         except IndexError:
             return ""
 
-    def get_value(self) -> Any:
+    def get_value(self) -> __T:
+        warnings.warn(
+            (
+                "get_value() considered deprecated in next releases, use value "
+                "property instead"
+            ),
+            DeprecationWarning,
+        )
         global cfg
         names = self.name.split(".")
 
@@ -138,12 +147,10 @@ class CfgOption:
             return self.typ(val)
         else:
             return self.typ(self._value)
-        
 
     @property
-    def value(self) -> Any:
+    def value(self) -> __T:
         return self.get_value()
-    
 
     def _get_val_from_nested_dict(
         self, d: Mapping[Any, Any], names: Sequence[str]
@@ -157,11 +164,11 @@ class CfgOption:
                 return d
 
         return None
-    
+
 
 def set_config_option_value(name: str, val: Any, typ: Callable = str):
     global cfg
-    
+
     # The option is in the submodule
     names = name.split(".")
     if len(names) > 1:
@@ -182,8 +189,14 @@ def set_config_option_value(name: str, val: Any, typ: Callable = str):
         cfg[name] = typ(val)
 
 
+# Development switch
 dev = CfgOption("dev", False, bool)
+
+# load .env files with defined environment variables, if available
 dot_env_path = CfgOption("dot_env_path", ".env", str)
-if dev.get_value():
+if dot_env_path.get_value():
     if not dotenv.load_dotenv(dotenv_path=dot_env_path.get_value(), verbose=True):
-        raise FileNotFoundError(".env file not found")
+        print(
+            f"No environment variables found in {dot_env_path.get_value()}",
+            file=sys.stderr,
+        )

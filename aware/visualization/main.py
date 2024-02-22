@@ -127,7 +127,7 @@ def plot_moc(
     center: SkyCoord = SkyCoord(180 * u.deg, 0 * u.deg, frame="icrs"),
     coordsys: Literal["icrs", "galactic"] = "icrs",
     rotation: u.Unit | Angle = Angle(0, u.degree),
-    projection: Literal(PRJ_CODES) = "MOL",
+    projection: Literal[PRJ_CODES] = "MOL",
     border_kws: dict[str, Any] | None = None,
     ax: plt.Axes | WCSAxes | None = None,
     fig_kws: Optional[dict[str, Any]] = None,

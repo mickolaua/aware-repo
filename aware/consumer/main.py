@@ -58,20 +58,20 @@ from ..alert.crossmatch import (
     replace_with_matched,
 )
 from ..alert.target_info import TargetInfo
+from ..alert.util import is_retracted, add_retracted, max_id
 from ..config import CfgOption
 from ..credentials import Credentials
 from ..data import TelegramAlertMessage  # , TelegramSFTPUrl
-from ..data import TelegramDataPackage
+from ..data import TelegramDataPackage, products_dir
 from ..glade import GladeCatalog, GladeGalaxy
+from ..io import create_event_folder
 from ..json import JSON
 from ..logger import log
+from ..planning.main import max_area_trigger
 from ..planning.planner import SkymapPlanner
 from ..planning.program import create_observation_program
-from ..planning.main import max_area_trigger
 from ..site import Site, Telescopes
 from ..topic import TOPICS, full_topic_name_to_short
-from ..io import create_event_folder
-from ..data import products_dir
 
 topics = CfgOption("topics", TOPICS, list)
 timeout = CfgOption("timeout", -1, int)
@@ -379,6 +379,10 @@ class ConsumeLoop:
 
         log.debug(info)
 
+        # Query alert database to determine if alert should be retracted
+        if not info.rejected:
+            info.rejected = is_retracted(info.event, info.origin)
+
         # Do not send plots and observational messages if the event matches previous
         # ones, but does not refines localization area
         send_obs_data = not info.rejected
@@ -387,7 +391,7 @@ class ConsumeLoop:
         # Store rejected (or retracted) event
         if info.rejected:
             log.debug("The senter rejected the event.")
-            m_id = alert.util.max_id()
+            m_id = max_id()
             if not m_id:
                 m_id = 1
             else:
@@ -415,13 +419,17 @@ class ConsumeLoop:
                 info.event,
                 len(matched_alerts),
                 origin,
-                event,
+                event
             )
-            if info.rejected:
-                log.debug("All cross-matched events will be rejected.")
-                for al in matched_alerts:
+            
+            log.debug("All cross-matched events will be rejected.")
+            for al in matched_alerts:
+                if info.rejected:
                     alert.util.add_retracted(al.id, al.event, al.origin)
-            else:
+                if is_retracted(al.event, al.origin):
+                    info.rejected = True
+
+            if not info.rejected:
                 if info.localization:
                     matched_error_radii = [a.error_radius for a in matched_alerts]
                     i_min = np.argmin(matched_error_radii)
@@ -491,7 +499,7 @@ class ConsumeLoop:
         if (
             send_obs_data
             and not info.rejected
-            and info.localization is not None 
+            and info.localization is not None
             and (info.localization.area().value < max_area_trigger.value)
         ):
             sites = list(
@@ -522,8 +530,9 @@ class ConsumeLoop:
                     s.name for s in sites if not s.fov.is_widefield
                 )
                 planner.plan_observations(
-                    wide_field_telescopes, narrow_field_telescopes, 
-                    disable_intersections=False
+                    wide_field_telescopes,
+                    narrow_field_telescopes,
+                    disable_intersections=False,
                 )
                 planner.save_plan_fits(wide_field_telescopes, narrow_field_telescopes)
                 saved_blocks = planner.save_blocks()
@@ -543,7 +552,9 @@ class ConsumeLoop:
                             f"plan_map_{origin}_{event}_{name}_day{planner.day}.png"
                         )
                         plot_name_safe = sanitize_filename(
-                            plot_name, replacement_text="_", platform="linux",
+                            plot_name,
+                            replacement_text="_",
+                            platform="linux",
                         )
                         plot_path = os.path.join(outdir, plot_name_safe)
                         fig = ax.get_figure()
@@ -609,7 +620,7 @@ class ConsumeLoop:
                         await save_file(fname_safe, obs_program)
 
                         plot_fname = os.path.join(outdir, f"{event_name}.png")
-                        plot_fname = sanitize_filepath(
+                        plot_fname_safe = sanitize_filepath(
                             plot_fname, replacement_text="_", platform="linux"
                         )
                         fig = ax.get_figure()
