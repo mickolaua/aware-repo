@@ -58,11 +58,8 @@ jobs:
     - name: Pushing configuration file to repository
       if: steps.genconfig.outcome == 'success'
       run: |
-        git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
-        git config --global user.name "${GITHUB_ACTOR}"
         git add aware.yaml
-        git commit -a --amend --no-edit
-        git push --force-with-lease
+        git -c user.name='GitHub Action' -c user.email='action@github.com' commit -m "Added config file"
         echo "Complete"
         
     - name: Build wheel
