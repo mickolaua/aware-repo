@@ -54,13 +54,6 @@ jobs:
       id: genconfig
       run: |
         AWARE_CONFIG_FILE=aware.yaml python -m aware -d
-
-    - name: Pushing configuration file to repository
-      if: steps.genconfig.outcome == 'success'
-      run: |
-        git add aware.yaml
-        git -c user.name='GitHub Action' -c user.email='action@github.com' commit -m "Added config file"
-        echo "Complete"
         
     - name: Build wheel
       run: |
