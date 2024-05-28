@@ -1,0 +1,9 @@
+{
+	"name": "test_site",
+	"latitude": 30,
+	"longitude": 30,
+	"elevation": 1600,
+	"timezone": "Europe/Moscow",
+	"fov": {"width": 1.0, "height": 1.0},
+	"default_magnitude": 16.0
+}

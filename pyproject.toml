@@ -1,0 +1,91 @@
+[build-system]
+requires = ["wheel", "setuptools > 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AWARE"
+version = "0.4.19"
+authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
+requires-python = ">=3.9,<3.12"
+dependencies = [
+    "wheel",
+    "numpy>=1.22.0",
+    "scipy>=1.7.0",
+    "healpy",
+    "mhealpy",
+    "pandas",
+    "sqlalchemy>=2.0",
+    "gcn_kafka",
+    "confluent_kafka",
+    "lxml",
+    "ligo.skymap",
+    "python-dotenv",
+    "colorama",
+    "wheel",
+    "matplotlib>=3.2.0",
+    "aiogram<3",
+    "aiogram_dialog",
+    "mocpy<=0.13.2",
+    "astropy>=4.0",
+    "astropy_healpix>=0.7.0",
+    "astroplan>=0.10",
+    "astroquery",
+    "alembic",
+    "click",
+    "sqlcipher3",
+    "aiosmtplib",
+    "asyncclick",
+    "pathvalidate",
+    "pendulum",
+    "matplotlib_scalebar",
+    "pyyaml",
+    "adjustText",
+    "orjson",
+    "aiorwlock",
+    "uvloop",
+    "aiomisc",
+    "emoji",
+    "aiofiles",
+    "diskcache",
+    "jplephem",
+    "redis",
+    "pydantic"
+]
+dynamic = ["readme"]
+
+[project.scripts]
+aware_astroplanner = "aware.scripts.aware_target_planner:main"
+aware_echo_client = "aware.scripts.aware_echo_client:main"
+aware_mosaic_planner = "aware.scripts.aware_mosaic_planner:main"
+aware_sort_targets = "aware.scripts.aware_sort_targets:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-astropy",
+    "pytest-arraydiff",
+    "pytest-mock",
+    "pytest-cov",
+    "pytest-openfiles",
+    "wheel",
+    "requests-mock",
+    "pytest-asyncio"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst"]}
+
+[tool.setuptools.packages.find]
+where = [".", "aware"]
+exclude = ["tests"]
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+
+[tool.pytest.ini_options]
+minversion = "0.4.3"
+addopts = "-c tests/conftest.py --disable-warnings"
+testpaths = [
+    "tests"
+]

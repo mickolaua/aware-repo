@@ -1,0 +1,216 @@
+# v0.4.0
+
+In this minor release:
+- Deprecated Python 3.8 support
+- Added more alert parsers (e.g. for INTEGRAL messages)
+- Added option to control triggering the automatic planning depending on skymap area
+
+## v0.4.1
+
+- Fixed incorrect naming of alert origin after cross-matching
+
+## v0.4.2
+
+- Fixed unable to run without -t option if Telegram API not set
+
+## v0.4.3
+
+- Fixed issue, when Swift alerts were marked as retracked mistakenly
+- Fixed float number format in LVC alerts
+- Fixed the tool to bump new version into files
+- Added global FAR threshold for LVC alerts
+
+## v0.4.4
+
+- Fixed issue, when LVC alerts were not received, because they have empty fields
+- Fixed large memory consumption in alert crossmatching, limit 300 rows per query
+- Fixed plot file saving (now use sanitized filename for the OS)
+- Fixed subscription problem due to overflow in chat_id column in the Database
+- Fixed incorrect name of OPD 1.6 meter telescope
+- Added 0.5-meter telescope of Kuban' State University
+- Importance estimation for LVC alerts (0.99 at FAR=3 events per year)
+- Account for local Sun rise and set times, when estimating target visibility
+- Visibility now is computed on the grid digitilized according to a telescope exposure and slew rate
+- Updated default settings for all telescopes (exposure time to 30 sec and Sun set altitude to -12 degrees)
+- Comment for observers in Telegram messages
+- Completely removed chat_id logging from the bot
+- Temporarily removed run, stop, and resume commands from the bot
+- List of available telescopes appears sorted now in Telegram
+- 300 dpi in sky find chart, and better colors
+
+## v0.4.5
+
+- Fixed issue with id columns of alert and settings tables in the database
+- Settings table now has separate id column as a primary key
+- Chat id column in the settings table now has VARCHAR(256) type (autoconvertable to int in Python) to prevent overflows caused by integer values in SQL
+- Fixed incorrectly provided DPI option in the sky find chart
+- Fixed incorrect unit of a scale bar in the sky find chart
+- Display smoothed DSS2 image in the sky find chart
+- Fixed ICECUBE and MAXI information message clobbering
+- Added test for the find chart plot
+- Added test for the settings table
+
+## v0.4.6
+
+- Fixed problem with conical MOC creation with mocpy>0.12
+
+## v0.4.7
+
+- Fixed circular import in LVC plugin, when using AWARE in interactive mode
+- Fixed visibility curve calculation, introduced in v0.4.4
+- Added cache_ok=True flag for TelegramID type
+- Use default naming convention for table constraints for easier migration
+- Define declarative base in SQLAlchemy 2.0 style
+
+## v0.4.8
+
+- Fixed incorrect plot safe filename in plotting
+- Fixed absent default value for VOEvent parameters
+- Fixed survey name in finding chart from DSS2 to DSS2 R
+- Fixed Kafka client configuration (in test mode, auto.commit is disabled, and group.id
+ is empty; in production mode group.id is uniquely set at each run),
+
+- Added type hint for config options
+- Added new script for visibility plots
+- Updated find chart plot (added compass)
+- Updated visibility plot (main yaxis is altitude now; the Moon phase, and separation angle)
+- Restored alert rejection functionality (a new event matching previously rejected one, 
+will be also rejected; all matched alerts with currently rejected one, will be marked 
+as rejected in the database)
+- Added cache support for queries to SkyView, telescope list retrieval, subscribers querying, 
+and for displaying available telescopes
+
+## v0.4.9
+
+- Added new socket server communicator
+- Bettter plots: display fields for mosaic planning of Fermi GBM skymaps, distance 
+- Blocking tasks, which were previously defined (but were not actually) as coroutines,
+- Cancelled events are marked with corresponding phrase in Telegram bot
+- Concurrent SQLAlchemy session via context manager
+- Fixed Fermi GBM error calculation
+- New architecture: one thread asyncio and thread pool for blocking tasks
+- New observation planner: different planning based on localization area. This includes
+- Rewritten Telegram bot architecture
+- Rich text messages in Telegram bot (superscript powers, emojies)
+- Updated tests (fixed SQL session handling)
+and probability scalebars for LVK planning.
+now have def signature. To run them concurrently, use the `aiomisc.threadable` wrapper.
+the mosaic planning for Fermi GBM skymaps.
+- Five column txt target list format instead of four columns
+- Additional keywords for sites to specify header inclusion in target lists 
+(header is included by default)
+- etc
+
+## 0.4.10
+
+- Fixed bug in mosaic, when number of field is set to a size of the sky map
+- `AlertMessage` and `DataPackage` argument target_info is default_factory as required 
+for a dataclass
+- Removed unnecessary joblib import in `aware.consumer.main`
+- TxtProgramLoader updated to read 5-column target lists
+- Observer comments mistakenly migrated to plot messages, now returned back to plan 
+messages
+- Deprecated `aware.telegram.main`, end users should use `aware.telegram.bot` instead
+
+## 0.4.11
+
+- Use `yield_per` method for querying the SQL database for all implemented functions. 
+Users should use `yield_per` in their custom functions, otherwise it is likely to face 
+application crash due to the enormous memory consumption. It is recommended to have 
+`count = 100...1000` in `yield_per` for optimal results.
+- No localization description is printed by `target_info.describe` method, but only 
+one of the metadata.
+- Returned back `First mention:` and `Packet:` fields in Telegram messages.
+
+## 0.4.12
+
+- Add missing `Packet:` fields in Telegram messages
+- Fixed error, when trying to get a description of an empty localization map
+
+## 0.4.13
+
+- Fixed empty `First mention:` field in Telegram messages if an event is new
+- Added option `effective_field_area`, and `box_size` for corresponding parameters in 
+`mosaic_walker`
+
+## 0.4.14
+
+- Fixed error from patch v0.4.13 on `First mention` field
+- Fixed error, when a user can not unsubscribe from the bot on some SQL databases
+due to incorrect type comparison in the `Subscriber.chat_id` field
+
+## 0.4.15
+
+- Fixed crash, when a distance bounds for an LVK event are not presented
+- Fixed crash, when an error radius is null
+- Fixed HEALPix sky map downloads: if downloaded already from the first try, 
+do not repeat trying
+- Use simple messaging format (but slightly better that it was) in Telegram
+- Added timeout for DB connection for a concurrent access to the SQLite database
+- Added options for mosaic scanning
+- Perform mosaic scanning for a skymap with a null error radius (useful for testing 
+alerts)
+- Removed some unnecessary imports
+
+## 0.4.16
+
+- Improved decision making for planning: no plans will be generated for a given event
+if the database already contains a cross-matched event, which localization completely 
+covers the skymap of the current event. Thus, if the older cross-matched event has an 
+error radius smaller than 1.5 arcmin or new area is more than 75% of the older one, no 
+plans will be created.
+- Fixed type hint for `GladeCatalog.lazy_load_catalog`.
+
+## 0.4.17
+
+- Use timeout option only for SQLite databases
+
+## 0.4.18
+
+- Updated configuration loader, now it is possible to dump the default configuration
+to a file using -d option (AWARE_CONFIG_FILE environment variable must be set)
+- New GCNTopic class for more flexibility in topic names, which allows to sepcify short 
+name for visualization purposes, and name used in GCN Kafka (e.g. for selecting alert 
+parsers based on the alert type)
+- Added new GCN topics for common LVK GWALERT channel, Swift GUANO, and Einstein Probe's
+WXT (all in JSON format)
+- Added alert parser for EP-WXT messages
+- Slightly changed `ConsumeLoop` so that message processing asynchronous routines 
+do not block the loop
+- Fixed circlular imports in `aware.localization`
+- Target distributors now do not need to select the targets depending on the night 
+duration, since `Site.observable_targets` will do it
+- Fixed again incorrect observational window calculation
+- Fixed missing sky tiles at the skymap borders in the mosaic planning
+- Added warnings and request for user prompt in `ObservationPlanner.clear_plans`
+- Rely more on `astroplan` capabilities for planning: use `PriorityScheduler`, and
+constraints. Resulting planning order will be slightly different from the order given 
+in previous functions. This helps with allocating time slots. It is garantied 
+that all the targets in the list can be observed. However, the time slots are currently 
+not send with observation programs.
+
+
+
+# v0.3.0
+
+Since this release, native Windows platform is not supported!
+
+## New planning system. 
+The observation planner tries to cover the most probable are of the GW event with mosaic and target observations. It is considered that in automatic mode, as GW skymap received and GW classified as BNS or NSBH, the observation plan will be created for a first night. The planner computes how many targets a telescope can observe during the night, provided that the telescope slew time is constant, but not zero. Also, it performs a kind of clustering with nearest neighbor algorithm, since we do not want a telescope "jumps" between sky fields or targets, significantly.
+
+## Updated Telegram bot
+The Telegram bot logic is rewritten in such way, that a user must subscribe to the user before receiving alert messages and observation plans. The subscription dialog is very intuitive and contains a list of alert types that could be received, and a list of telescopes for which the bot sends the observational data. 
+
+## Executable scripts
+Added several scripts to be able to perform sky map displaying, planning, etc in place. The possible use case is when a one wants to make plans for next days of observations (remember that 1st day planning is possibly performed) or re-create the plans, for instance, with an addition of other telescopes.
+
+## API
+Changes to API:
+- Config file is no more needed for using AWARE
+- All config options have attribute <code>value</code> for a convenient access to the value
+- Added more observatories
+- Based on observatory, there is a certain format for the list of targets/sky fields for observations
+- Telescopes have default values for photometric filter, exposure time, exposure count
+- Alert events are cross-matched before sending the alert messages in Telegram and creating the plans
+- Something more we forgot to mention :)
+

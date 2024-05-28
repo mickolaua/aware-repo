@@ -1,0 +1,70 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: AWARE
+
+on:
+  push:
+    branches: [ "master", "maintance/*", "hotfix*", "release/*"]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Install system dependencies
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: build-essential sqlite3 sqlcipher libsqlcipher-dev 
+        version: 1.0
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install flake8 pytest
+        python -m pip install pip-tools
+        pip-compile -o requirements.txt --resolver backtracking --verbose
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f requirements_dev.txt ]; then pip install -r requirements_dev.txt; fi
+# Skip linting because we will have a lot of errors since a lot of incorrect type checking for 
+# different reasons, including packages with not type hinting support.
+#     - name: Lint with flake8
+#       run: |
+#         # stop the build if there are Python syntax errors or undefined names
+#         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+#         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+#         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        pytest
+
+    - name: Generating configuration file
+      id: genconfig
+      run: |
+        AWARE_CONFIG_FILE=aware.yaml python -m aware -d
+
+    - name: Pushing configuration file to repository
+      if: steps.genconfig.outcome == 'success'
+      run: |
+        git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+        git config --global user.name "${GITHUB_ACTOR}"
+        git add aware.yaml
+        git commit -a --amend --no-edit
+        git push --force-with-lease
+        echo "Complete"
+        
+    - name: Build wheel
+      run: |
+        python -m pip wheel -w wheelhouse .
