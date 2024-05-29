@@ -206,11 +206,12 @@ class CfgOption(Generic[__T]):
     ) -> Any:
         """Get the value from the nested dictionary (raw YAML config is the one)"""
         names = list(names)
+        d_copy = dict(d)
         while names:
             name = names.pop(0)
-            d = d.get(name, None)
-            if not isinstance(d, dict):
-                return d
+            d_copy = d_copy.get(name, None)
+            if not isinstance(d_copy, dict):
+                return d_copy
 
         return None
 
