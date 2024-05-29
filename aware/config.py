@@ -54,7 +54,9 @@ def load_config(
     else:
         try:
             with open(full_path, "rb") as f:
-                cfg = yaml.load(f, loader)
+                yaml_cfg = yaml.load(f, loader)
+                if yaml_cfg is not None:
+                    cfg.update(yaml_cfg)
         except IsADirectoryError:
             print(f"Path to config file is not a file: {full_path}")
         except (OSError, IOError) as e:
