@@ -20,6 +20,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      fetch-depth: 0
       
     - name: Install system dependencies
       uses: awalsh128/cache-apt-pkgs-action@latest
@@ -54,6 +55,22 @@ jobs:
       id: genconfig
       run: |
         AWARE_CONFIG_FILE=aware.yaml python -m aware -d
+
+    - name: Commit configuration file
+      run: |
+        mkdir -p output
+        yes| cp -rf aware.yaml ./output/
+        git config --local user.email "noreply@github.com"
+        git config --local user.name "GitHub Action"
+        git add ./output
+        git commit -a -m "Added generated configuration file"
+
+    -name: Pushing configuration file
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }} 
+
         
     - name: Build wheel
       run: |
