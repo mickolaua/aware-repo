@@ -65,7 +65,7 @@ jobs:
         git add ./output
         git commit -a -m "Added generated configuration file"
 
-    -name: Pushing configuration file
+    - name: Pushing configuration file
       uses: ad-m/github-push-action@master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
