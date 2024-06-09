@@ -51,28 +51,35 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-
+    
+    # When generating configuration allow steps to fail
+    # Also make sure that we run config generator only once (let's use just a single
+    # python version)
     - name: Generating configuration file
+      if: (${{ matrix.python-version }} == '3.11')
       id: genconfig
       run: |
         AWARE_CONFIG_FILE=aware.yaml python -m aware -d
+      continue-on-error: true
 
     - name: Commit configuration file
+      if: (steps.genconfig.outcome == 'success') && (${{ matrix.python-version }} == '3.11')
       run: |
-        mkdir -p output
-        yes| cp -rf aware.yaml ./output/
         git config --local user.email "noreply@github.com"
         git config --local user.name "GitHub Action"
-        git add ./output
+        git pull
+        git add aware.yaml
         git commit -a -m "Added generated configuration file"
+      continue-on-error: true
 
     - name: Pushing configuration file
       uses: ad-m/github-push-action@master
+      if: (steps.genconfig.outcome == 'success') && (${{ matrix.python-version }} == '3.11')
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ github.ref }} 
+        branch: ${{ github.ref }}
+      continue-on-error: true
 
-        
     - name: Build wheel
       run: |
         python -m pip wheel -w wheelhouse .
