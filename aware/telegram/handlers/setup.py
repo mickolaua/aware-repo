@@ -32,6 +32,6 @@ def setup_handlers(dp: Dispatcher):
     dp.register_message_handler(
         handlers.findchart_handler,
         lambda message: message.text.startswith("/findchart")
-        and len(message.text.split(" ")) == 3,
+        and len(message.text.split(" ")) == 4,
         commands="findchart",
     )

@@ -14,10 +14,10 @@
 from __future__ import annotations
 
 import asyncio
-from io import BytesIO
 import pickle
 from contextlib import suppress
 from datetime import datetime
+from io import BytesIO
 from threading import Lock, Thread
 from typing import Any, Mapping, Optional, Sequence
 from uuid import uuid4
@@ -58,10 +58,29 @@ from ..site import Telescopes, default_sites
 from ..topic import TOPICS, full_topic_name_to_short, get_topics
 
 # TODO: move topic option to aware.topic ?
-topics = CfgOption("topics", [t.name for t in get_topics()], list)
-timeout = CfgOption("timeout", -1, float)
+topics = CfgOption(
+    "topics",
+    [t.name for t in get_topics()],
+    list,
+    comment="The list of alert topics to listen to",
+)
+timeout = CfgOption(
+    "timeout",
+    -1,
+    float,
+    comment="Timeout in seconds to wait for alert message consuming (default -1 means infinite timeout)",
+)
 start_date = CfgOption(
-    "start_date", datetime.now(tz=pytz.UTC).isoformat(), datetime.fromisoformat
+    "start_date",
+    datetime.now(tz=pytz.UTC).isoformat(),
+    datetime.fromisoformat,
+    comment="The start date from which to listen for alerts",
+)
+max_tasks = CfgOption(
+    "max_tasks",
+    10,
+    int,
+    comment="Maximum number of asynchronous alert processing tasks",
 )
 
 
@@ -169,6 +188,7 @@ class ConsumeLoop(Service):
         data_queue: asyncio.Queue[DataPackage] = asyncio.Queue(),
         messages_count: int = 10,
         loop: asyncio.AbstractEventLoop | None = None,
+        max_tasks: int = 10,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -179,6 +199,8 @@ class ConsumeLoop(Service):
         self._lock = asyncio.Lock()
         self._max_commit_messages: int = 10
         self._commited_messages: int = 0
+        self._max_tasks = max_tasks
+        self._semaphore = asyncio.Semaphore(max_tasks)
 
     def _shutdown(self):
         """Shutdown the consume loop"""
@@ -202,10 +224,11 @@ class ConsumeLoop(Service):
 
     async def consume_messages(self):
         # ! Use recursion with sleep here, since we don't want block execution
-        while True:
-            message = await self._poll_message(timeout=timeout.value)
-            await self._process_message(message)
-            await asyncio.sleep(1.0)
+        async with self._semaphore:
+            while True:
+                message = await self._poll_message(timeout=timeout.value)
+                await self._process_message(message)
+                await asyncio.sleep(0.0)
 
     async def start(self):
         """Start the consumer. This method is required by `Service`."""
@@ -307,6 +330,7 @@ class ConsumeLoop(Service):
                 matched_alerts = crossmatch_alerts(info)
             except Exception as e:
                 log.error("Failed to crossmatch alert in space: %s", e)
+                matched_alerts = []
             return matched_alerts
 
         @aiomisc.threaded
@@ -315,6 +339,7 @@ class ConsumeLoop(Service):
                 matched_alerts = crossmatch_alerts_by_name(info.origin, info.event)
             except Exception as e:
                 log.error("Failed to crossmatch alert by name: %s", e)
+                matched_alerts = []
             return matched_alerts
 
         if info.localization:
@@ -328,9 +353,10 @@ class ConsumeLoop(Service):
 
         refines_localization = False
         if matched_alerts:
-            sorted_alerts = sorted(matched_alerts, key=lambda _a: _a["trigger_date"])
-            origin = sorted_alerts[0]["origin"]
-            event = sorted_alerts[0]["event"]
+            # sorted_alerts = sorted(matched_alerts, key=lambda _a: _a["trigger_date"])
+            earliest_alert = min(matched_alerts, key=lambda _a: _a["trigger_date"])
+            origin = earliest_alert["origin"]
+            event = earliest_alert["event"]
             log.debug(
                 "Event %s %s matches %d already stored events (firstly mentioned as "
                 "%s %s)",
@@ -446,13 +472,21 @@ class ConsumeLoop(Service):
         )
         await que.put(alert_message)
 
-        # We can send observational data
-        if (
-            send_obs_data
-            and not info.rejected
-            and info.localization is not None
-            and (info.localization.area().to_value("deg2") < max_area_trigger.value)
-        ):
+        def is_plannable() -> bool:
+            loc = getattr(info, "localization", None)
+            is_passed = not info.rejected
+            has_skymap = loc is not None
+            max_area = max_area_trigger.value
+            curr_area = getattr(loc, "area", None)
+            is_skymap_size_in_bounds = (
+                curr_area is not None and curr_area().to_value("deg2") < max_area
+            )
+            plannable = (
+                send_obs_data and is_passed and has_skymap and is_skymap_size_in_bounds
+            )
+            return plannable
+
+        if is_plannable():
             now = Time(datetime.now().isoformat(), format="isot")
 
             telescopes = {name: Telescopes[name] for name in default_sites.value}

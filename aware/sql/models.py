@@ -35,13 +35,13 @@ from aware.logger import log
 __all__ = ["Base", "Alert", "Subscriber", "create_session"]
 
 
-alert_db = CfgOption("alert_db", "alert.db", str)
-driver_db = CfgOption("driver", "sqlite", str)
-user_db = CfgOption("user", "", str)
-password_db = CfgOption("password", "", str)
-host_db = CfgOption("host", "", str)
-port_db = CfgOption("port", 8080, int)
-query_db = CfgOption("query", "", list)
+alert_db = CfgOption("alert_db", "alert.db", str, comment="Path to alert database")
+driver_db = CfgOption("driver", "sqlite", str, comment="Driver to use with the database (e.g. sqlite for SQLite databases)")
+user_db = CfgOption("user", "", str, comment="Database user")
+password_db = CfgOption("password", "", str, comment="Database password for the user")
+host_db = CfgOption("host", "", str, comment="Database hostname")
+port_db = CfgOption("port", 8080, int, comment="Database port number")
+query_db = CfgOption("query", "", list, comment="Database queries to be executed at the first connection")
 
 
 naming_convention = {

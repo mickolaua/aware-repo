@@ -24,7 +24,12 @@ from aware.logger import log
 from aware import site
 
 
-max_area_trigger = CfgOption("max_area_trigger", 50.0, float)
+max_area_trigger = CfgOption(
+    "max_area_trigger",
+    50.0,
+    float,
+    comment="Maximal area of localization contour for which the planning will be performed",
+)
 
 
 def nearest_observation_window(
@@ -32,9 +37,9 @@ def nearest_observation_window(
     time: Time | datetime | str | float,
     horizon: u.Unit = -12 * u.degree,
     after_sunset: TimeDelta | timedelta | u.Unit = TimeDelta(5400 * u.s, format="sec"),
-    before_sunrise: TimeDelta
-    | timedelta
-    | u.Unit = TimeDelta(5400 * u.s, format="sec"),
+    before_sunrise: TimeDelta | timedelta | u.Unit = TimeDelta(
+        5400 * u.s, format="sec"
+    ),
 ) -> tuple[Time, Time]:
     """Get the closest time interval(s) (start and end time) when the site can
     observe any targets. Such an interval is found inside 24-hr time window
@@ -60,7 +65,6 @@ def nearest_observation_window(
         start and end time of the observational period
     """
     log.debug("Searching for nearest night about %s", time.isot)
-
 
     sunrise = site.sun_rise_time(time, which="nearest", horizon=site.horizon)
     sunset = site.sun_set_time(time, which="nearest", horizon=site.horizon)
@@ -146,9 +150,7 @@ def nn_sorter(
         )
         single_slew_time = total_exposure + site.default_slew_rate.to_value("day")
         Npoints = int(np.ceil(night_duration / single_slew_time))
-        time_grid = Time(
-            np.linspace(start_time.jd, end_time.jd, Npoints), format="jd"
-        )
+        time_grid = Time(np.linspace(start_time.jd, end_time.jd, Npoints), format="jd")
         at_low_airmass = np.argsort(
             np.sum(
                 site.altaz(time_grid, targets, grid_times_targets=True).secz
@@ -198,7 +200,7 @@ def nn_sorter(
         mask[uniq] = 1
         dist = np.ma.masked_array(dist_matrix[seq_obj_id, :], mask=mask)
         next_obj_id = np.argmin(dist)
-        
+
         # Assign next target id
         order_idx[i + 1] = next_obj_id
         seq_obj_id = next_obj_id

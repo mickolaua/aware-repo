@@ -57,11 +57,25 @@ __all__ = ["Localization", "CircularSkyMap", "LVCSkyMap"]
 
 
 # Options
-coord_frame = CfgOption("coord_frame", "icrs", str)
-lvk_uncert_level = CfgOption("lvk_uncert_level", 0.9, float)
-max_healpix_resolution = CfgOption("max_healpix_resolution", 8, int)
-healpix_resolution_step = CfgOption("healpix_resolution_step", 1, int)
-max_workers = CfgOption("max_workers", 100, int)
+coord_frame = CfgOption("coord_frame", "icrs", str, comment="Coordinate frame")
+lvk_uncert_level = CfgOption(
+    "lvk_uncert_level",
+    0.9,
+    float,
+    comment="Probability threshold for localization contours",
+)
+max_healpix_resolution = CfgOption(
+    "max_healpix_resolution", 8, int, comment="Maximal HEALPix map resolution"
+)
+healpix_resolution_step = CfgOption(
+    "healpix_resolution_step", 1, int, comment="HEALPIX resolution step"
+)
+max_workers = CfgOption(
+    "max_workers",
+    100,
+    int,
+    comment="Maximum number of threads for remote Vizier queries",
+)
 
 # Constants
 TOTAL_SKY_AREA = 41252.961 * u.Unit("deg2")

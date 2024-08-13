@@ -19,7 +19,12 @@ import aiomisc
 
 
 # Maximal date difference to match a pair of alerts
-max_date_diff_min = CfgOption("max_date_diff_min", 5.0, float)
+max_date_diff_min = CfgOption(
+    "max_date_diff_min",
+    5.0,
+    float,
+    comment="Maximal date difference [min] to match a pair of alerts",
+)
 
 
 def crossmatch_alerts(

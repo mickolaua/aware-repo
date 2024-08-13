@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AWARE"
-version = "0.4.19"
+version = "0.4.20"
 authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
 requires-python = ">=3.9,<3.12"
 dependencies = [
@@ -49,7 +49,9 @@ dependencies = [
     "diskcache",
     "jplephem",
     "redis",
-    "pydantic"
+    "pydantic",
+    # "fastavro",
+    "ruamel.yaml"
 ]
 dynamic = ["readme"]
 
@@ -69,7 +71,8 @@ dev = [
     "pytest-openfiles",
     "wheel",
     "requests-mock",
-    "pytest-asyncio"
+    "pytest-asyncio",
+    "datamodel-code-generator[http]" # For generating pydantic models from JSON schema
 ]
 
 [tool.setuptools]

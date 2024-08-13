@@ -18,7 +18,12 @@ __all__ = ["GBMFinPosAlertParser", "GBMAlertAlertParser", "GBMFltPosAlertParser"
 
 
 FERMI_GBM = "Fermi (GBM)"
-fermi_gbm_sys_error = CfgOption("fermi_gbm_sys_error", 2.0, float)  # degrees
+fermi_gbm_sys_error = CfgOption(
+    "fermi_gbm_sys_error",
+    2.0,
+    float,
+    comment="Systematic error [deg] to be added to statistical one in quadrature",
+)  # degrees
 
 
 def parse_fermi_alert(

@@ -189,6 +189,19 @@ in previous functions. This helps with allocating time slots. It is garantied
 that all the targets in the list can be observed. However, the time slots are currently 
 not send with observation programs.
 
+## 0.4.20
+
+- Added comment to `CfgOption`
+- Added comments for all options
+- Added QueueHub to allow use of the Telegram bot and the sockets at the same time
+- Added semaphore to limit number of consumer tasks
+- Added test for EP alert parser
+- Fixed /visplot command of the Telegram bot
+- Fixed issue when a current configuration file update changes values of already 
+- Improved format for distance in LVK alerts
+- Save configuration file with comments
+- Updated EP alert parser to use the id when possible
+existing options
 
 
 # v0.3.0

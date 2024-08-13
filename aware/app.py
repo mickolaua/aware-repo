@@ -8,14 +8,80 @@ import aiomisc
 import matplotlib as mpl
 import uvloop
 
+from aware.logger import log
 from aware.service import ServiceFactory
+from aiomisc import Service
 
 from .config import dev
 from .sql.models import create_session
 from .sql.util import create_alert_tables
+from aware.data import AlertMessage, DataPackage
+from collections import deque
 
 
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+class QueueHub(Service):
+    """
+    QueueHub is performing distribution of items from a main queue between
+    queues owned by other clients. It is useful because when a multiple clients use
+    the same queue, the one which gets an item first, actually removes it from the
+    queue.
+    """
+
+    def __init__(
+        self,
+        master_queue: asyncio.Queue[AlertMessage | DataPackage],
+        queues: list[asyncio.Queue[AlertMessage | DataPackage]] = None,
+        **kwargs,
+    ):
+        self.master_queue = master_queue
+        self.queues = deque(queues or [])
+
+    async def distribute(self):
+        """
+        Perform actual distribution of items between master queue and other queues
+
+        Raises
+        ------
+        ValueError
+            if the queue is empty
+        """
+        if self.queues is None:
+            raise ValueError(
+                "No queues to distribute; use add_queue method to add queues"
+            )
+
+        while self.queues:
+            try:
+                item = await self.master_queue.get()
+            except asyncio.QueueEmpty as e:
+                log.error(
+                    "Error occurred while sending item to hub memebers", exc_info=e
+                )
+            else:
+                for q in self.queues:
+                    await q.put(item)
+
+    async def start(self):
+        """Start the hub."""
+        await self.distribute()
+
+    async def add_queue(self, q: asyncio.Queue):
+        """Add a queue to the hub
+
+        Parameters
+        ----------
+        q : asyncio.Queue
+            a queue to add
+        """
+        async with asyncio.Lock():
+            self.queues.append(q)
+
+    async def cleanup(self):
+        """
+        Cleanup the hub
+        """
+        async with asyncio.Lock():
+            self.queues.clear()
 
 
 class Application:
@@ -63,16 +129,37 @@ class Application:
         self.services = []
         factory = ServiceFactory(self._que)
 
+        # if self.mode == "test":
+        #     self.services.append(factory.create_test_consumer())
+        # elif self.mode == "prod":
+        #     self.services.append(factory.create_prod_consumer())
+
+        # if self.run_telegram:
+        #     self.services.append(factory.create_telegram_bot())
+
+        # if self.run_socket_server:
+        #     self.services.append(factory.create_socket_server())
+
+        queues = []
+
+        # Consumer fills the master queue with data
         if self.mode == "test":
-            self.services.append(factory.create_test_consumer())
+            self.services.append(factory.create_test_consumer(queue=self._que))
         elif self.mode == "prod":
-            self.services.append(factory.create_prod_consumer())
+            self.services.append(factory.create_prod_consumer(queue=self._que))
 
         if self.run_telegram:
-            self.services.append(factory.create_telegram_bot())
+            tg_que = asyncio.Queue()
+            self.services.append(factory.create_telegram_bot(queue=tg_que))
+            queues.append(tg_que)
 
         if self.run_socket_server:
-            self.services.append(factory.create_socket_server())
+            socket_que = asyncio.Queue()
+            self.services.append(factory.create_socket_server(queue=socket_que))
+            queues.append(socket_que)
+
+        hub = QueueHub(self._que, queues)
+        self.services.insert(0, hub)
 
     def run(self) -> float:
         engine, _ = create_session()

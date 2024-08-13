@@ -18,9 +18,16 @@ from sqlite3 import Error
 __all__ = ["cache_value"]
 
 
-cache_dir = CfgOption("cache_dir", ".cache", str)
-timeout = CfgOption("timeout", 60, float)
-expire = CfgOption("expire", 86400, float)
+cache_dir = CfgOption("cache_dir", ".cache", str, comment="Cache directory")
+timeout = CfgOption(
+    "timeout",
+    60,
+    float,
+    comment="Maximum number of seconds to wait for retrieval of a cached value",
+)
+expire = CfgOption(
+    "expire", 86400, float, comment="Cached value expiration time in seconds"
+)
 
 
 def __access_cache():
@@ -40,10 +47,11 @@ def __access_cache():
 
             def get(self, *args, **kwargs): ...
 
-            def __enter__(self): return self
+            def __enter__(self):
+                return self
 
             def __exit__(self, *args, **kwargs): ...
-            
+
         cache = EmptyCache()
 
     return cache

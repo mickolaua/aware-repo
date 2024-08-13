@@ -10,6 +10,7 @@
 # Copyright:   (c) 2004-2022 AWARE Developers 
 # ----------------------------------------------------------------------------
 """
+
 from __future__ import annotations
 
 import atexit
@@ -23,10 +24,19 @@ from .config import CfgOption
 __all__ = ["log"]
 
 # Config options
-verbosity = CfgOption("verbosity", value="INFO", 
-                      typ=lambda val: logging._nameToLevel[val])
-filename = CfgOption("filename", value="aware.log", typ=str)
-filemode = CfgOption("filemode", value="w+", typ=str)
+verbosity = CfgOption(
+    "verbosity",
+    value="INFO",
+    typ=lambda val: logging._nameToLevel[val],
+    comment="Logging verbosity",
+)
+filename = CfgOption("filename", value="aware.log", typ=str, comment="Log filename")
+filemode = CfgOption(
+    "filemode",
+    value="w+",
+    typ=str,
+    comment="Log file mode (e.g. 'w+' means to always write a new log file after program restart)",
+)
 
 
 # Set logger
@@ -37,14 +47,14 @@ log.setLevel(verbosity.value)
 def colored_message(msg: str, color: str) -> str:
     """
     Return colorized version of the message.
-    
+
     Parameters
     ----------
     msg : str
         message to colorize
     color : str
         text color
-    
+
     Returns
     -------
     str
@@ -62,7 +72,7 @@ class ColorFormatter(logging.Formatter):
         """
         Paint record message according to the logging level.
         """
-        
+
         msg = super(ColorFormatter, self).format(record)
 
         lvl = record.levelno
@@ -78,7 +88,6 @@ class ColorFormatter(logging.Formatter):
             formatted_msg = colored_message(msg, colorama.Fore.RED)
 
         return formatted_msg
-    
 
 
 msg_format = "%(asctime)s.%(msecs)03d %(levelname)8s "
@@ -87,11 +96,13 @@ msg_format += "%(module)s.%(funcName)s(): %(message)s"
 console = logging.StreamHandler()
 console.setFormatter(ColorFormatter(msg_format))
 
+
 def _remove_handlers() -> None:
     if log.hasHandlers():
         log.handlers = []
 
-# Remove handlers to prevent double message emmiting 
+
+# Remove handlers to prevent double message emmiting
 _remove_handlers()
 
 log.addHandler(console)

@@ -5,6 +5,7 @@ Desc: telegram data objects and other useful stuff
 Created:  2023-05-21
 Modified: 2024-04-02
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,10 +18,16 @@ from .config import CfgOption
 
 
 products_dir = CfgOption(
-    "products_dir", "~/aware/products/", lambda _p: str(os.path.expanduser(_p))
+    "products_dir",
+    "~/aware/products/",
+    lambda _p: str(os.path.expanduser(_p)),
+    comment="Directory containing plans and related products",
 )
 cache_dir = CfgOption(
-    "cache_dir", "~/aware/cache/", lambda _p: str(os.path.expanduser(_p))
+    "cache_dir",
+    "~/aware/cache/",
+    lambda _p: str(os.path.expanduser(_p)),
+    comment="Cache directory for HEALPix localizations",
 )
 
 
@@ -36,7 +43,7 @@ def make_dirs(dirs: list[str]):
                     "Path must be a directory storing AWARE products, got a file",
                     d,
                 )
-            
+
 
 make_dirs([products_dir.value, cache_dir.value])
 
@@ -64,4 +71,3 @@ class DataPackage:
     comment: str = ""
     target_info: TargetInfo = field(default_factory=lambda: TargetInfo(None))
     created: datetime = datetime.now()
-    

@@ -47,11 +47,11 @@ def goodbye(start_time: float):
     "environment variable)",
 )
 def main(telegram: bool, sockserver: bool, mode: str, threads: int, dump: str):
-    if sockserver and telegram:
-        log.error(
-            "Simultaneous execution of Telegram bot and socket server not supported"
-        )
-        return 1
+    # if sockserver and telegram:
+    #     log.error(
+    #         "Simultaneous execution of Telegram bot and socket server not supported"
+    #     )
+    #     return 1
 
     if dump:
         if not os.getenv("AWARE_CONFIG_FILE", ""):

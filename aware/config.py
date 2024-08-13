@@ -70,7 +70,9 @@ def load_config(
 cfg = load_config()
 
 
-def set_config_option_value(name: str, val: Any, typ: Callable = str):
+def set_config_option_value(
+    name: str, val: Any, typ: Callable = str, comment: str = ""
+):
     global cfg
 
     # The option is in the submodule
@@ -79,18 +81,19 @@ def set_config_option_value(name: str, val: Any, typ: Callable = str):
         curr_d = cfg
         while names:
             n = names.pop(0)
+            curr_d = curr_d if isinstance(curr_d, dict) else curr_d[0]
             v = curr_d.get(n, None)
             if not v:
                 curr_d[n] = {}
 
             if not names:
-                curr_d[n] = typ(val)
+                curr_d[n] = (typ(val), comment)
             else:
-                curr_d = curr_d[n]
+                curr_d = (curr_d[n], comment)
 
     else:
         # The option at the root level
-        cfg[name] = typ(val)
+        cfg[name] = (typ(val), comment)
 
 
 # Option return type
@@ -111,10 +114,13 @@ class CfgOption(Generic[__T]):
         a function that processes and validates the value type
     """
 
-    def __init__(self, name: str, value: Any, typ: Callable[..., __T]) -> None:
+    def __init__(
+        self, name: str, value: Any, typ: Callable[..., __T], comment: str = ""
+    ) -> None:
         global cfg
         self._name = name
         self.typ = typ
+        self.comment = comment
 
         # Get caller filename here or it will always return filename where is the base
         # class located
@@ -122,10 +128,12 @@ class CfgOption(Generic[__T]):
 
         # ! All additional initialization MUST be done down below, since the full option
         # ! name is determined after previous line.
-        self._value = self._get_val_from_nested_dict(cfg, self.name.split('.')) or value
-        
+        self._value = self._get_val_from_nested_dict(cfg, self.name.split(".")) or value
+
         # Adding option to config dictionary, so one can dump the configuration to file
-        set_config_option_value(self.name, self._value, lambda x: x)
+        set_config_option_value(
+            self.name, self._value, lambda x: x, comment=self.comment
+        )
 
     def __get_aware_pkg_root(self) -> str:
         """
@@ -213,17 +221,48 @@ class CfgOption(Generic[__T]):
             name = names.pop(0)
             d_copy = d_copy.get(name, None)
             if not isinstance(d_copy, dict):
-                return d_copy
+                if isinstance(d_copy, tuple):
+                    return d_copy[0] # idx=1 is the comment
+                else:
+                    return d_copy
 
         return None
 
 
 def save_cfg(path: str = ""):
+    from ruamel.yaml import YAML
+
     if not path:
         path = os.getenv("AWARE_CONFIG_FILE", "aware.yaml")
 
+    loader = YAML()
+    dumped_yaml = loader.load(yaml.safe_dump(cfg))
+    
+    def comments(d: dict):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                comments(value)
+            else:
+                val, comment = value
+                if comment:
+                    d.yaml_add_eol_comment(comment, key)
+                d[key] = val
+
+    def remove_comments_from_values(d: dict):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                remove_comments_from_values(value)
+            else:
+                d[key] = value[0]
+
+    comments(dumped_yaml)
+    # remove_comments_from_values(dumped_yaml)
+
     with open(os.path.expanduser(os.path.realpath(path)), "w") as f:
-        yaml.safe_dump(cfg, f, default_flow_style=False)
+        loader.dump(data=dumped_yaml, stream=f)
+
+    # with open(os.path.expanduser(os.path.realpath(path)), "w") as f:
+    #     yaml.safe_dump(cfg, f, default_flow_style=False)
 
 
 # Development switch

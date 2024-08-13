@@ -11,9 +11,13 @@
 # ----------------------------------------------------------------------------
 """
 
+import asyncio
 import collections
 import traceback
 from types import ModuleType
+from ruamel.yaml import YAML
+
+import uvloop
 
 __modules__ = [
     "config",
@@ -119,6 +123,11 @@ def deep_update(src: dict, updates: dict):
                 # src[k] is not a dict, nothing to merge, so just set it,
                 # regardless if src[k] *was* a dict
                 src[k] = v
+                if src.get(k):
+                    if isinstance(src[k], tuple):
+                        src[k][1] = v[1]
+                else:
+                    src[k] = v                   
             else:
                 # note: updates[k] is a dict
                 if k not in src:
@@ -127,7 +136,11 @@ def deep_update(src: dict, updates: dict):
                 elif not isinstance(src[k], dict):
                     # src[k] is not a dict, so just set it to updates[k],
                     # overriding whatever it was
-                    src[k] = v
+                    if src.get(k):
+                        if isinstance(src[k], tuple):
+                            src[k][1] = v[1]
+                    else:
+                        src[k] = v   
                 else:
                     # both src[k] and updates[k] are dicts, push them on the stack
                     # to merge
@@ -140,3 +153,6 @@ def deep_update(src: dict, updates: dict):
 # # It is save to remove configuration here, because it is presented it config module
 # del cfg
 # del yaml_cfg
+
+
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())

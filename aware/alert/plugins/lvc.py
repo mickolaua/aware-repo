@@ -32,9 +32,24 @@ __all__ = [
 ]
 
 
-has_ns_prob_thresh = CfgOption("has_ns_prob_thresh", 0.667, float)
-bbh_skymap_max_area = CfgOption("bbh_skymap_max_area", 30, float)
-far_threshold_global = CfgOption("far_threshold_global", 10, float)
+has_ns_prob_thresh = CfgOption(
+    "has_ns_prob_thresh",
+    0.667,
+    float,
+    comment="The probability threshold to consider LVK event to be either from NSBH or BNS merger",
+)
+bbh_skymap_max_area = CfgOption(
+    "bbh_skymap_max_area",
+    30,
+    float,
+    comment="The maximum area of BBH merger to be considered for planning",
+)
+far_threshold_global = CfgOption(
+    "far_threshold_global",
+    10,
+    float,
+    comment="The FAR threshold for an event to be considered as not a real event",
+)
 
 
 HZ_to_reciprocal_yr = 31557600
@@ -260,7 +275,9 @@ def parse_lvc_alert(
     if meta:
         # distmu_str = render_number_as_rich_utf8(distmu.value, 3)
         # distsigma_str = render_number_as_rich_utf8(2 * distsigma.value, 3)
-        description += f"Distance: {distmu.value:.1f} \u00B1 {distsigma.value:.1f} Mpc (2\u03C3)"
+        description += (
+            f"Distance: {distmu.value:.1f} \u00B1 {distsigma.value:.1f} Mpc (2\u03C3)"
+        )
     else:
         description += "Skymap is not available at the moment."
 

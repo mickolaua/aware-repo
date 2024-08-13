@@ -7,6 +7,7 @@ Modified: !date!
 """
 
 from io import BytesIO, StringIO
+import numpy as np
 import orjson
 from astropy.time import Time
 from aware.logger import log
@@ -28,15 +29,26 @@ class WXTAlertParser(AlertParser):
         except orjson.JSONDecodeError as e:
             log.error("Could not parse alert due to incorrect JSON encoding: %s", e)
             info = None
-        else:
+
+        try:
             ra = msg_content["ra"]
             dec = msg_content["dec"]
             radius = msg_content["ra_dec_error"]
+            snr = msg_content["image_snr"]
+
+            # Normalized so, at S/N = 5, importance is 90%
+            importance = np.tanh(snr / 3.35)
+
             trigger_date = Time(
                 msg_content["trigger_time"], format="isot"
             ).to_datetime()
-            importance = 0.9
-            event = f"J{ra:.3f}{dec:+.3f}"
+
+            # If there is no trigger id, then event name is derived from coordinates
+            if "id" in msg_content:
+                event = np.atleast_1d(msg_content["id"])[0]
+            else:
+                event = f"J{ra:.3f}{dec:+.3f}"
+
             localization = CircularSkyMap(ra_center=ra, dec_center=dec, radius=radius)
             info = TargetInfo(
                 localization=localization,
@@ -46,4 +58,10 @@ class WXTAlertParser(AlertParser):
                 trigger_date=trigger_date,
                 importance=importance,
             )
+        except Exception as e:
+            if not isinstance(e, KeyboardInterrupt):
+                raise
+            else:
+                log.error("Failed to parse EP alert: %s", e, exc_info=e)
+
         return info

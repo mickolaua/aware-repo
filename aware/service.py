@@ -26,7 +26,7 @@ class ServiceFactory:
     def __init__(self, queue: asyncio.Queue):
         self.queue = queue
 
-    def create_test_consumer(self) -> Service:
+    def create_test_consumer(self, queue: asyncio.Queue = None) -> Service:
         cred = get_credentials()
         test_consumer_config = self.COMMON_CONSUMER_OPTIONS.copy()
         test_consumer_config.update(
@@ -37,9 +37,9 @@ class ServiceFactory:
             }
         )
         consumer = prepare_consumer(test_consumer_config, cred)
-        return ConsumeLoop(consumer, self.queue)
+        return ConsumeLoop(consumer, queue or self.queue)
 
-    def create_prod_consumer(self):
+    def create_prod_consumer(self, queue: asyncio.Queue = None):
         cred = get_credentials()
         prod_consumer_config = self.COMMON_CONSUMER_OPTIONS.copy()
         prod_consumer_config.update(
@@ -48,12 +48,12 @@ class ServiceFactory:
             }
         )
         consumer = prepare_consumer(prod_consumer_config, cred)
-        return ConsumeLoop(consumer, self.queue)
+        return ConsumeLoop(consumer, queue or self.queue)
 
-    def create_telegram_bot(self) -> Service:
-        bot = TelegramBot(queue=self.queue)
+    def create_telegram_bot(self, queue: asyncio.Queue = None) -> Service:
+        bot = TelegramBot(queue=queue or self.queue)
         return bot
 
-    def create_socket_server(self) -> Service:
-        server = SocketServer(queue=self.queue)
+    def create_socket_server(self, queue: asyncio.Queue = None) -> Service:
+        server = SocketServer(queue=queue or self.queue)
         return server

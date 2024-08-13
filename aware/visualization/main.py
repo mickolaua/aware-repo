@@ -65,10 +65,10 @@ COORD_FRAME = "icrs"
 PROJECTION = "MOL"
 
 
-plot_width_inch = CfgOption("plot_width_px", 9.600, float)
-plot_height_inch = CfgOption("plot_height_px", 9.600, float)
-plot_dpi = CfgOption("plot_dpi", 100, float)
-plot_colormap = CfgOption("plot_colormap", "cylon", str)
+plot_width_inch = CfgOption("plot_width_px", 9.600, float, comment="Plot width in inches")
+plot_height_inch = CfgOption("plot_height_px", 9.600, float, comment="Plot height in inches")
+plot_dpi = CfgOption("plot_dpi", 100, float, comment="Plot DPI in pixels per dot")
+plot_colormap = CfgOption("plot_colormap", "cylon", str, comment="Plot colormap")
 
 plt.rcParams["figure.figsize"] = (plot_width_inch.value, plot_height_inch.value)
 plt.rcParams["figure.dpi"] = plot_dpi.value

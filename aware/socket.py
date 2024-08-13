@@ -3,16 +3,47 @@ import os
 
 import aiofiles
 from aiomisc.service import TCPServer
+import numpy as np
 
 from aware.config import CfgOption
 from aware.data import AlertMessage, DataPackage
 from aware.logger import log
+import re
 
-hostname = CfgOption("hostname", "127.0.0.1", str)
-port = CfgOption("port", 55555, int)
-max_connections = CfgOption("max_connections", 5, int)
-send_alert_message = CfgOption("send_alert_message", False, bool)
-send_cancelled_alerts = CfgOption("send_cancelled_alerts", False, bool)
+
+IPV4_PORT_REGEX = (
+    # First 3 numbers of IP: make sure each number <= 255
+    r"^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}"
+    # Last 3 numbers of IP
+    r"((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))"
+    # Match port below 60000
+    r"(:([0-9]|[1-9][0-9]|[1-9][0-9]{2}|[1-9][0-9]{3}|[1-5][0-9][0-9]{3}|"
+    # Match port between 60000 and 65535
+    r"[6][0-5][0-5][0-3][0-5]))?$"
+)
+
+
+hostname = CfgOption("hostname", "127.0.0.1", str, comment="Hostname of the server")
+port = CfgOption("port", 55555, int, comment="Port of the server")
+max_connections = CfgOption(
+    "max_connections", 5, int, comment="Maximum number of connections to the server"
+)
+send_alert_message = CfgOption(
+    "send_alert_message",
+    False,
+    bool,
+    comment="Send alert message via socket connection?",
+)
+send_cancelled_alerts = CfgOption(
+    "send_cancelled_alerts",
+    False,
+    bool,
+    comment="Send messages on cancelled alerts via socket connection?",
+)
+client_name_filters = CfgOption(
+    "client_name_filters", [IPV4_PORT_REGEX], lambda x: [re.compile(i) for i in x],
+    comment="Regular expression filters to validate client ip:port against"
+)
 
 
 PROGRAM_HEADER = "--START_PROGRAM--"
@@ -54,29 +85,33 @@ async def client_task(
     queue: asyncio.Queue, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
 ):
     client_addr = writer.get_extra_info("peername")
-    while True:
+    if is_allowed(*client_addr):
+        log.debug(
+            "client is connected from %s; client is in the whitelist", client_addr
+        )
+        while True:
+            try:
+                data = await queue.get()
+
+                if data:
+                    msg = await form_message(data)
+                    if msg:
+                        log.debug("Sending observation plan to %s", client_addr)
+                        log.debug("Plan: %s", msg)
+                        writer.write(msg)
+                        await writer.drain()
+
+                queue.task_done()
+
+            except BaseException as e:
+                log.error("Error sending observation plan: %s", e)
+                break
+
         try:
-            data = await queue.get()
-
-            if data:
-                msg = await form_message(data)
-                if msg:
-                    log.debug("Sending observation plan to %s", client_addr)
-                    log.debug("Plan: %s", msg)
-                    writer.write(msg)
-                    await writer.drain()
-
-            queue.task_done()
-
-        except BaseException as e:
-            log.error("Error sending observation plan: %s", e)
-            break
-
-    try:
-        writer.close()
-        await writer.wait_closed()
-    except BrokenPipeError as e:
-        log.error("Error occured at closing writer for %s: %s", client_addr, e)
+            writer.close()
+            await writer.wait_closed()
+        except BrokenPipeError as e:
+            log.error("Error occured at closing writer for %s: %s", client_addr, e)
 
 
 # Handle for alternative implementation of TCPClient
@@ -124,6 +159,16 @@ async def client_task(
 #         )
 #         log.info("Started socket server on host %s on port %d", self.host, self.port)
 #         await self.server.serve_forever()
+
+
+def is_allowed(ip: str, port: int):
+    allowed = False
+    for i, f in enumerate(client_name_filters.value):
+        if re.fullmatch(f, f"{ip}:{port}"):
+            allowed = True
+            break
+
+    return allowed
 
 
 class SocketServer(TCPServer):

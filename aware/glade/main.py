@@ -32,9 +32,9 @@ from ..logger import log
 from ..angle import coord2str, coord_to_target_name
 
 
-vizier_url = CfgOption("vizier_url", "http://vizier.u-strasbg.fr", str)
-row_limit = CfgOption("row_limit", 50, int)
-catalog_path = CfgOption("catalog_path", "~/gladep.fits", str)
+vizier_url = CfgOption("vizier_url", "http://vizier.u-strasbg.fr", str, "The Vizier URL for the remote querying of the GLADE+ catalog")
+row_limit = CfgOption("row_limit", 50, int, comment="Maximum number of rows to be fetched from the Vizier")
+catalog_path = CfgOption("catalog_path", "~/gladep.fits", str, comment="Path to the catalog file")
 
 
 class CatalogNotFound(Exception):

@@ -41,16 +41,38 @@ __all__ = ["FOV", "Site", "Telescopes", "default_sites"]
 
 
 sort_method = CfgOption("sort_method", "radec", str)
-max_airmass = CfgOption("max_airmass", 3.5, float)
-min_altitude = CfgOption("min_altitude", 30, lambda x: Angle(x, unit=u.deg))
-max_altitude = CfgOption("max_altitude", 90, lambda x: Angle(x, unit=u.deg))
-min_altitude = CfgOption("min_altitude", 30, lambda x: Angle(x, unit=u.deg))
-min_moon_separation = CfgOption(
-    "min_moon_separation", 50, lambda x: Angle(x, unit=u.deg)
+max_airmass = CfgOption(
+    "max_airmass", 3.5, float, comment="Maximal airmass for a target to be observable"
 )
-max_moon_phase = CfgOption("max_moon_illumination", 1.0, float)
+min_altitude = CfgOption(
+    "min_altitude",
+    30,
+    lambda x: Angle(x, unit=u.deg),
+    comment="Minimal altitude [deg] for a target to be observable",
+)
+max_altitude = CfgOption(
+    "max_altitude",
+    90,
+    lambda x: Angle(x, unit=u.deg),
+    comment="Maximal altitude [deg] for a target to be observable",
+)
+min_moon_separation = CfgOption(
+    "min_moon_separation",
+    50,
+    lambda x: Angle(x, unit=u.deg),
+    comment="Minimal separation [deg] between the Moon and a target for a target to be observable",
+)
+max_moon_phase = CfgOption(
+    "max_moon_illumination",
+    1.0,
+    float,
+    comment="Maximal Moon phase [0, 1] for a target to be observable",
+)
 site_plugin_directory = CfgOption(
-    "site_plugin_directory", get_full_path("~/aware/plugins"), get_full_path
+    "site_plugin_directory",
+    get_full_path("~/aware/plugins"),
+    get_full_path,
+    comment="Directory where telescope JSON plugins are stored",
 )
 # Registry for all defined sites. Note, sites are theyselves added to the registry,
 # a person does not need to add them manually.
@@ -1117,4 +1139,9 @@ def __adapt_telescopes():
 
 __adapt_telescopes()
 
-default_sites = CfgOption("default_sites", list(Telescopes.keys()), list)
+default_sites = CfgOption(
+    "default_sites",
+    list(Telescopes.keys()),
+    list,
+    comment="List of telescopes for which to generate plans",
+)

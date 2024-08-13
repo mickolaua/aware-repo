@@ -22,8 +22,20 @@ from ..site import FOV
 __all__ = ["mosaic_walker"]
 
 
-effective_field_area = CfgOption("effective_field_area", 0.9, float)
-box_size = CfgOption("box_size", 3, int)
+effective_field_area = CfgOption(
+    "effective_field_area",
+    0.9,
+    float,
+    comment="Effective telescope FOV [0..1] (multiplier to the original FOV) to account"
+    " for possible edge artifacts on further survey images",
+)
+box_size = CfgOption(
+    "box_size",
+    3,
+    int,
+    comment="Box size in which to select further field to go to in order of decreasing "
+    "of probability",
+)
 
 
 # def p2num(p):
@@ -298,7 +310,7 @@ def mosaic_walker(
         a list of the sky field sorted in optimal order for mosaic scanning
     """
     fovx, fovy = fov.width.to_value("deg"), fov.height.to_value("deg")
-    c = find_greedy_credible_levels(hpx)   
+    c = find_greedy_credible_levels(hpx)
 
     Nside = hp.get_nside(hpx)
     good_mask = c < prob
@@ -314,9 +326,7 @@ def mosaic_walker(
     if not iter_count:
         npix = hp.get_map_size(good_hpx)
         iter_count = npix
-    result, _ = get_list(
-        map=arr, box_size=box_size, num_epochs=iter_count, proj=proj
-    )
+    result, _ = get_list(map=arr, box_size=box_size, num_epochs=iter_count, proj=proj)
 
     # Check that this is not a degenerate case, where ra=180, dec=-90, and array has
     # only one dimension
@@ -333,19 +343,21 @@ def mosaic_walker(
             ra = coord.ra.deg
             dec = coord.dec.deg
 
-            lonlat_to_check = np.column_stack([
-                [ra - fovx / 2, dec - fovy / 2],
-                [ra - fovx / 2, dec + fovy / 2],
-                [ra + fovx / 2, dec - fovy / 2],
-                [ra + fovx / 2, dec + fovy / 2],
-            ])
+            lonlat_to_check = np.column_stack(
+                [
+                    [ra - fovx / 2, dec - fovy / 2],
+                    [ra - fovx / 2, dec + fovy / 2],
+                    [ra + fovx / 2, dec - fovy / 2],
+                    [ra + fovx / 2, dec + fovy / 2],
+                ]
+            )
             lon = lonlat_to_check[0]
             lat = lonlat_to_check[1]
 
             # ang2pix does not take out of range values, so we should validate
             # them
             good_lonlat = (lon >= 0) & (lon <= 360) & (lat <= 90) & (lat >= -90)
-            
+
             # All pixels are outside localization region
             if np.count_nonzero(good_lonlat) < 1:
                 continue
@@ -353,7 +365,7 @@ def mosaic_walker(
             pixels = hp.ang2pix(
                 Nside, lon[good_lonlat], lat[good_lonlat], nest=True, lonlat=True
             )
-            
+
             if good_pixels.intersection(pixels):
                 field = Field(
                     SkyCoord(a * u.deg, d * u.deg),
@@ -365,6 +377,5 @@ def mosaic_walker(
                     ),
                 )
                 sorted_targets.append(field)
-    
 
     return sorted_targets
