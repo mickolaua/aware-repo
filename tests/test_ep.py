@@ -38,7 +38,7 @@ def test():
 
     ALERT_BYTES = orjson.dumps(ALERT)
     target_info = WXTAlertParser.parse_alert(ALERT_BYTES)
-    assert target_info.event == ALERT["id"]
+    assert target_info.event == ALERT["id"][0]
     assert target_info.trigger_date == Time(ALERT["trigger_time"], format="isot")
     assert target_info.localization.center().ra.deg == ALERT["ra"]
     assert target_info.localization.center().dec.deg == ALERT["dec"]
