@@ -1,25 +1,26 @@
 alert:
   crossmatch:
-    max_date_diff_min: 5.0
+    max_date_diff_min: 5.0  # Maximal date difference [min] to match a pair of alerts
   plugins:
     gbm:
-      fermi_gbm_sys_error: 2.0
+      fermi_gbm_sys_error: 2.0  # Systematic error [deg] to be added to statistical one in quadrature
     lvc:
-      bbh_skymap_max_area: 30
-      far_threshold_global: 10
-      has_ns_prob_thresh: 0.667
+      bbh_skymap_max_area: 30  # The maximum area of BBH merger to be considered for planning
+      far_threshold_global: 10 # The FAR threshold for an event to be considered as not a real event
+      has_ns_prob_thresh: 0.667 # The probability threshold to consider LVK event to be either from NSBH or BNS merger
 cache:
-  cache_dir: .cache
-  expire: 86400
-  timeout: 60
+  cache_dir: .cache  # Cache directory
+  expire: 86400 # Cached value expiration time in seconds
+  timeout: 60 # Maximum number of seconds to wait for retrieval of a cached value
 config:
   dev: false
   dot_env_path: .env
 consumer:
   main:
-    start_date: '2024-05-30T12:30:41.999865+00:00'
-    timeout: -1
-    topics:
+    max_tasks: 10  # Maximum number of asynchronous alert processing tasks
+    start_date: '2024-05-30T12:30:41.999865+00:00' # The start date from which to listen for alerts
+    timeout: -1 # Timeout in seconds to wait for alert message consuming (default -1 means infinite timeout)
+    topics: # The list of alert topics to listen to
     - igwn.gwalert
     - gcn.notices.swift.bat.guano
     - gcn.notices.einstein_probe.wxt.alert
@@ -102,33 +103,33 @@ consumer:
     - gcn.classic.voevent.TEST_COORDS
     - gcn.classic.voevent.UNKNOWN
 data:
-  cache_dir: ~/aware/cache/
-  products_dir: ~/aware/products/
+  cache_dir: ~/aware/cache/  # Cache directory for HEALPix localizations
+  products_dir: ~/aware/products/ # Directory containing plans and related products
 glade:
   main:
-    catalog_path: ~/gladep.fits
-    row_limit: 50
-    vizier_url: http://vizier.u-strasbg.fr
+    catalog_path: ~/gladep.fits  # Path to the catalog file
+    row_limit: 50 # Maximum number of rows to be fetched from the Vizier
+    vizier_url: http://vizier.u-strasbg.fr # The Vizier URL for the remote querying of the GLADE+ catalog
 localization:
   main:
-    coord_frame: icrs
-    healpix_resolution_step: 1
-    lvk_uncert_level: 0.9
-    max_healpix_resolution: 8
-    max_workers: 100
+    coord_frame: icrs  # Coordinate frame
+    healpix_resolution_step: 1 # HEALPIX resolution step
+    lvk_uncert_level: 0.9 # Probability threshold for localization contours
+    max_healpix_resolution: 8 # Maximal HEALPix map resolution
+    max_workers: 100 # Maximum number of threads for remote Vizier queries
 logger:
-  filemode: w+
-  filename: aware.log
-  verbosity: INFO
+  filemode: w+  # Log file mode (e.g. 'w+' means to always write a new log file after program restart)
+  filename: aware.log # Log filename
+  verbosity: INFO # Logging verbosity
 planning:
   main:
-    max_area_trigger: 50.0
+    max_area_trigger: 50.0  # Maximal area of localization contour for which the planning will be performed
   mosaic:
-    box_size: 3
-    effective_field_area: 0.9
+    box_size: 3  # Box size in which to select further field to go to in order of decreasing of probability
+    effective_field_area: 0.9 # Effective telescope FOV [0..1] (multiplier to the original FOV) to account for possible edge artifacts on further survey images
 site:
   main:
-    default_sites:
+    default_sites:  # List of telescopes for which to generate plans
     - mondy_azt33ik
     - crao_ztsh
     - crao_sintez
@@ -151,31 +152,33 @@ site:
     - opd_1_6m
     - kubsu_0.5m
     - assy_wfos40
-    max_airmass: 3.5
-    max_altitude: 90
-    max_moon_illumination: 1.0
-    min_altitude: 30
-    min_moon_separation: 50
-    site_plugin_directory: /home/runner/aware/plugins
+    max_airmass: 3.5 # Maximal airmass for a target to be observable
+    max_altitude: 90 # Maximal altitude [deg] for a target to be observable
+    max_moon_illumination: 1.0 # Maximal Moon phase [0, 1] for a target to be observable
+    min_altitude: 30 # Minimal altitude [deg] for a target to be observable
+    min_moon_separation: 50 # Minimal separation [deg] between the Moon and a target for a target to be observable
+    site_plugin_directory: /home/runner/aware/plugins # Directory where telescope JSON plugins are stored
     sort_method: radec
 socket:
-  hostname: 127.0.0.1
-  max_connections: 5
-  port: 55555
-  send_alert_message: false
-  send_cancelled_alerts: false
+  client_name_filters:  # Regular expression filters to validate client ip:port against
+  - ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))(:([0-9]|[1-9][0-9]|[1-9][0-9]{2}|[1-9][0-9]{3}|[1-5][0-9][0-9]{3}|[6][0-5][0-5][0-3][0-5]))?$
+  hostname: 127.0.0.1 # Hostname of the server
+  max_connections: 5 # Maximum number of connections to the server
+  port: 55555 # Port of the server
+  send_alert_message: false # Send alert message via socket connection?
+  send_cancelled_alerts: false # Send messages on cancelled alerts via socket connection?
 sql:
   models:
-    alert_db: alert.db
-    driver: sqlite
-    host: ''
-    password: ''
-    port: 8080
-    query: ''
-    user: ''
+    alert_db: alert.db  # Path to alert database
+    driver: sqlite # Driver to use with the database (e.g. sqlite for SQLite databases)
+    host: '' # Database hostname
+    password: '' # Database password for the user
+    port: 8080 # Database port number
+    query: '' # Database queries to be executed at the first connection
+    user: '' # Database user
 visualization:
   main:
-    plot_colormap: cylon
-    plot_dpi: 100
-    plot_height_px: 9.6
-    plot_width_px: 9.6
+    plot_colormap: cylon  # Plot colormap
+    plot_dpi: 100 # Plot DPI in pixels per dot
+    plot_height_px: 9.6 # Plot height in inches
+    plot_width_px: 9.6 # Plot width in inches
