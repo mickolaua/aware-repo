@@ -26,7 +26,10 @@ IPV4_PORT_REGEX = (
 hostname = CfgOption("hostname", "127.0.0.1", str, comment="Hostname of the server")
 port = CfgOption("port", 55555, int, comment="Port of the server")
 max_connections = CfgOption(
-    "max_connections", 5, int, comment="Maximum number of connections to the server"
+    "max_connections",
+    5,
+    lambda x: max(1, x),
+    comment="Maximum number of connections to the server",
 )
 send_alert_message = CfgOption(
     "send_alert_message",
@@ -41,8 +44,10 @@ send_cancelled_alerts = CfgOption(
     comment="Send messages on cancelled alerts via socket connection?",
 )
 client_name_filters = CfgOption(
-    "client_name_filters", [IPV4_PORT_REGEX], lambda x: [re.compile(i) for i in x],
-    comment="Regular expression filters to validate client ip:port against"
+    "client_name_filters",
+    [IPV4_PORT_REGEX],
+    lambda x: [re.compile(i) for i in x],
+    comment="Regular expression filters to validate client ip:port against",
 )
 
 
@@ -81,37 +86,38 @@ async def form_message(data: AlertMessage | DataPackage) -> bytes:
         return b""
 
 
-async def client_task(
-    queue: asyncio.Queue, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-):
-    client_addr = writer.get_extra_info("peername")
-    if is_allowed(*client_addr):
-        log.debug(
-            "client is connected from %s; client is in the whitelist", client_addr
+def is_allowed(ip: str, port: int) -> bool:
+    """Check if the given ip and port are allowed to connect to the server
+
+    Parameters
+    ----------
+    ip : str
+        an IP address
+    port : int
+        a port number
+
+    Returns
+    -------
+    bool
+        True if the given ip and port are allowed
+    """
+    allowed = False
+    for i, f in enumerate(client_name_filters.value):
+        if re.fullmatch(f, f"{ip}:{port}"):
+            allowed = True
+            break
+
+    return allowed
+
+
+async def try_close_writer(writer: asyncio.StreamWriter, client_addr: tuple[str, int]):
+    try:
+        writer.close()
+        await writer.wait_closed()
+    except BrokenPipeError as e:
+        log.error(
+            "Error occured when closing writer for %s: %s", client_addr, e, exc_info=e
         )
-        while True:
-            try:
-                data = await queue.get()
-
-                if data:
-                    msg = await form_message(data)
-                    if msg:
-                        log.debug("Sending observation plan to %s", client_addr)
-                        log.debug("Plan: %s", msg)
-                        writer.write(msg)
-                        await writer.drain()
-
-                queue.task_done()
-
-            except BaseException as e:
-                log.error("Error sending observation plan: %s", e)
-                break
-
-        try:
-            writer.close()
-            await writer.wait_closed()
-        except BrokenPipeError as e:
-            log.error("Error occured at closing writer for %s: %s", client_addr, e)
 
 
 # Handle for alternative implementation of TCPClient
@@ -161,26 +167,26 @@ async def client_task(
 #         await self.server.serve_forever()
 
 
-def is_allowed(ip: str, port: int):
-    allowed = False
-    for i, f in enumerate(client_name_filters.value):
-        if re.fullmatch(f, f"{ip}:{port}"):
-            allowed = True
-            break
-
-    return allowed
-
-
 class SocketServer(TCPServer):
     def __init__(
         self,
         host: str = hostname.value,
         port: int = port.value,
         queue: asyncio.Queue = asyncio.Queue(),
+        max_connections: int = max_connections.value,
         **kwargs,
     ):
         super().__init__(address=host, port=port, **kwargs)
         self.queue = queue
+        self.max_connections = max_connections
+        self._connections = 0
+        self._clients: dict[
+            tuple[str, int], tuple[asyncio.StreamReader, asyncio.StreamWriter]
+        ] = {}
+
+    @property
+    async def num_clients(self) -> int:
+        return len(self._clients)
 
     async def handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -199,5 +205,106 @@ class SocketServer(TCPServer):
         -------
         None
         """
-        await asyncio.gather(client_task(self.queue, reader, writer))
+        await asyncio.gather(self.client_task(reader, writer))
         return None
+
+    async def client_task(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ):
+        client_addr = writer.get_extra_info("peername")
+        if is_allowed(*client_addr):
+            log.debug(
+                "client is connecting from %s; client is in the whitelist", client_addr
+            )
+            async with asyncio.Lock():
+                if self._connections >= max_connections.value:
+                    log.debug(
+                        "Maximum number of connections reached: %d/%d",
+                        self._connections,
+                        max_connections.value,
+                    )
+                    log.debug("Client will not be connected")
+                    await try_close_writer(writer, client_addr)
+                    return
+
+            await self.add_client(client_addr, reader, writer)
+
+        else:
+            log.debug(
+                "client is connecting from %s; client is not allowed", client_addr
+            )
+            await try_close_writer(writer, client_addr)
+
+    async def add_client(
+        self,
+        client_addr: tuple[str, int],
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ):
+        async with asyncio.Lock():
+            self._clients[client_addr] = (reader, writer)
+            log.debug("Added client %s:%d", *client_addr)
+
+    async def remove_client(self, client_addr: tuple[str, int]):
+        async with asyncio.Lock():
+            removed_client = self._clients.pop(client_addr, None)
+            if removed_client is not None:
+                log.debug("Removed client %s:%d", *client_addr)
+            else:
+                log.debug("Client %s:%d not found; nothing to remove", *client_addr)
+
+    async def watch_clients(self):
+        """
+        Watch for clients and remove unconnected ones.
+        """
+        while True:
+            dead_clients = set()
+
+            for addr, streams in self._clients.items():
+                async with asyncio.Lock():
+                    reader, writer = streams
+                    if writer.is_closing():
+                        dead_clients.add(addr)
+                        log.debug("Found inactive client: %s", addr)
+
+            for addr in dead_clients:
+                await self.remove_client(addr)
+                log.debug("Client removed due to inactivity: %s", addr)
+
+            # Sleep here or the event loop will stuck
+            await asyncio.sleep(0.0)
+
+    async def send_data(self):
+        """
+        Send data to clients over socket connection.
+        """
+        while True:
+            try:
+                data = await self.queue.get()
+                self.queue.task_done()
+                if data:
+                    msg = await form_message(data)
+
+                    for client_addr, streams in self._clients.items():
+                        reader, writer = streams
+                        if msg:
+                            log.debug("Sending data to %s", client_addr)
+                            log.debug("Data: %s", msg)
+                            try:
+                                writer.write(msg)
+                                await writer.drain()
+                            except Exception as e:
+                                log.debug("Client %s error: %s", client_addr, e)
+
+                                await try_close_writer(writer, client_addr)
+                                await self.remove_client(client_addr)
+
+            except BaseException as e:
+                log.error("Error sending observation plan: %s", e)
+            finally:
+                await asyncio.sleep(0.0)
+
+    async def start(self) -> None:
+        await asyncio.gather(super().start(), self.watch_clients(), self.send_data())

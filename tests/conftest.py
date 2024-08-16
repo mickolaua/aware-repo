@@ -49,5 +49,6 @@ def mocksession1(monkeypatch, tmp_path):
 
 @pytest.fixture(autouse=True)
 def no_logging():
-    logger = logging.getLogger("aware")
-    logger.disabled = True
+    for name in {"aware", "aiomisc"}:
+        logger = logging.getLogger(name)
+        logger.disabled = True

@@ -204,6 +204,15 @@ not send with observation programs.
 existing options
 
 
+## 0.4.21
+
+- Fixed issue when several socket clients do not get all data
+- Added disconnection of inactive clients in socket server
+- Disable `aiomisc` logger in `pytest` config
+- Added `notify_subs` tool to send message to Telegram subscribers
+- Added `socket_client` tool, which is a simple socket client to receive messages
+
+
 # v0.3.0
 
 Since this release, native Windows platform is not supported!

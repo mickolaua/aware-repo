@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AWARE"
-version = "0.4.20"
+version = "0.4.21"
 authors = [{name="Nicolai Pankov", email="colinsergesen@gmail.com"}]
 requires-python = ">=3.9,<3.12"
 dependencies = [
@@ -69,6 +69,7 @@ dev = [
     "pytest-mock",
     "pytest-cov",
     "pytest-openfiles",
+    "pytest-timeout",
     "wheel",
     "requests-mock",
     "pytest-asyncio",
